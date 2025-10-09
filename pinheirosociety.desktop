@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Arena Pinheiro Society
+Comment=Sistema de Reservas da Arena Pinheiro Society
+Exec=pinheirosociety
+Icon=/usr/share/pixmaps/pinheirosociety.png
+Terminal=false
+Categories=Game;Sports;Utility;
+StartupWMClass=pinheirosociety
+MimeType=application/x-pinheirosociety;
