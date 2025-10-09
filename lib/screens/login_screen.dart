@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Login',
+                                'Email',
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   color: Colors.white,
@@ -174,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 keyboardType: TextInputType.emailAddress,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
-                                  hintText: 'Insira seu e-mail',
+                                  hintText: 'exemplo@exemplo.com',
                                   hintStyle: TextStyle(color: Colors.grey[400]),
                                   filled: true,
                                   fillColor: Colors.grey[800],
@@ -220,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 obscureText: !_isPasswordVisible,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
-                                  hintText: 'Insira sua senha',
+                                  hintText: 'senha123',
                                   hintStyle: TextStyle(color: Colors.grey[400]),
                                   filled: true,
                                   fillColor: Colors.grey[800],

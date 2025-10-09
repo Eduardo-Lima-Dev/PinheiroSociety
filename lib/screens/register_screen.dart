@@ -37,7 +37,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          role: 'ADMIN', // Sempre ADMIN conforme solicitado
+          role: 'ADMIN',
         );
 
         setState(() {
@@ -183,7 +183,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 keyboardType: TextInputType.name,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
-                                  hintText: 'Insira seu nome completo',
+                                  hintText: 'João da Silva',
                                   hintStyle: TextStyle(color: Colors.grey[400]),
                                   filled: true,
                                   fillColor: Colors.grey[800],
@@ -228,7 +228,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 keyboardType: TextInputType.emailAddress,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
-                                  hintText: 'Insira seu e-mail',
+                                  hintText: 'exemplo@exemplo.com',
                                   hintStyle: TextStyle(color: Colors.grey[400]),
                                   filled: true,
                                   fillColor: Colors.grey[800],
@@ -274,7 +274,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 obscureText: !_isPasswordVisible,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
-                                  hintText: 'Insira sua senha',
+                                  hintText: 'Senha123',
                                   hintStyle: TextStyle(color: Colors.grey[400]),
                                   filled: true,
                                   fillColor: Colors.grey[800],
