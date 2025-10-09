@@ -162,13 +162,7 @@ class LandingScreen extends StatelessWidget {
             Navigator.of(context).pushNamed('/login');
             break;
           case 'register':
-            // TODO: Implementar tela de cadastro
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Tela de cadastro será implementada em breve'),
-                backgroundColor: Colors.orange,
-              ),
-            );
+            Navigator.of(context).pushNamed('/register');
             break;
         }
       },

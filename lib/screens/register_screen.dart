@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
@@ -18,22 +19,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
 
       try {
-        // Fazer login via API
-        final result = await ApiService.login(
+        // Fazer cadastro via API
+        final result = await ApiService.register(
+          name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          role: 'ADMIN', // Sempre ADMIN conforme solicitado
         );
 
         setState(() {
@@ -41,16 +45,22 @@ class _LoginScreenState extends State<LoginScreen> {
         });
 
         if (result['success']) {
-          // Login bem-sucedido - navegar para o dashboard
+          // Cadastro bem-sucedido - mostrar mensagem e voltar ao login
           if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/dashboard');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cadastro realizado com sucesso!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.of(context).pop(); // Volta para a tela anterior (login)
           }
         } else {
-          // Erro no login
+          // Erro no cadastro
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(result['error'] ?? 'Erro no login'),
+                content: Text(result['error'] ?? 'Erro no cadastro'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -88,12 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-
           // Conteúdo principal
           SafeArea(
             child: Column(
               children: [
-                // Header com botão voltar, logo e ícone de pessoa
+                // Header com botão voltar e logo
                 Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Row(
@@ -123,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const Spacer(),
 
-                // Formulário de login centralizado
+                // Formulário de cadastro centralizado
                 Center(
                   child: Container(
                     width: 400,
@@ -145,9 +154,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Título Login
+                          // Título Cadastro
                           Text(
-                            'Login',
+                            'Cadastro',
                             style: GoogleFonts.poppins(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
@@ -156,12 +165,57 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 30),
 
+                          // Campo de Nome
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Nome',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _nameController,
+                                keyboardType: TextInputType.name,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: InputDecoration(
+                                  hintText: 'Insira seu nome completo',
+                                  hintStyle: TextStyle(color: Colors.grey[400]),
+                                  filled: true,
+                                  fillColor: Colors.grey[800],
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Por favor, insira seu nome';
+                                  }
+                                  if (value.length < 2) {
+                                    return 'O nome deve ter pelo menos 2 caracteres';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
                           // Campo de Email
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Login',
+                                'Email',
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   color: Colors.white,
@@ -260,12 +314,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 25),
 
-                          // Botão Entrar
+                          // Botão Cadastrar
                           SizedBox(
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
+                              onPressed: _isLoading ? null : _handleRegister,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 foregroundColor: Colors.white,
@@ -286,7 +340,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     )
                                   : Text(
-                                      'Entrar',
+                                      'Cadastrar',
                                       style: GoogleFonts.poppins(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -296,9 +350,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 20),
 
-                          // Link para criar conta
+                          // Link para fazer login
                           Text(
-                            'Não tem uma conta?',
+                            'Já tem uma conta?',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               color: Colors.white,
@@ -307,10 +361,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 8),
                           GestureDetector(
                             onTap: () {
-                              Navigator.of(context).pushNamed('/register');
+                              Navigator.of(context).pop(); // Volta para login
                             },
                             child: Text(
-                              'Criar conta',
+                              'Fazer login',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 color: Colors.green,
