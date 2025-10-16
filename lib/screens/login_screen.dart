@@ -88,36 +88,19 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-
           // Conteúdo principal
           SafeArea(
             child: Column(
               children: [
-                // Header com botão voltar, logo e ícone de pessoa
+                // Header com logo centralizada (sem botão voltar)
                 Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Botão voltar
-                      IconButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      
-                      // Logo ARENA PINHEIRO SOCIETY
-                      Image.asset(
-                        'assets/images/Logo.png',
-                        height: 60,
-                        fit: BoxFit.contain,
-                      ),
-                    ],
+                  child: Center(
+                    child: Image.asset(
+                      'assets/images/Logo.png',
+                      height: 60,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
 
@@ -191,7 +174,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   if (value == null || value.isEmpty) {
                                     return 'Por favor, insira seu email';
                                   }
-                                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                  if (!RegExp(
+                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
                                       .hasMatch(value)) {
                                     return 'Por favor, insira um email válido';
                                   }
@@ -241,7 +225,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _isPasswordVisible = !_isPasswordVisible;
+                                        _isPasswordVisible =
+                                            !_isPasswordVisible;
                                       });
                                     },
                                   ),
@@ -280,7 +265,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
                                           Colors.white,
                                         ),
                                       ),
