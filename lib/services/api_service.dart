@@ -283,6 +283,7 @@ class ApiService {
         Uri.parse('$baseUrl/clientes/$id'),
         headers: _headers,
         body: jsonEncode({
+          'id': id,
           'nomeCompleto': nomeCompleto,
           'cpf': cpf,
           'email': email,
@@ -301,6 +302,33 @@ class ApiService {
         'error': responseData['message'] ??
             responseData['error'] ??
             'Erro na atualização do cliente',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Erro de conexão: ${e.toString()}',
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteCliente(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/clientes/$id'),
+        headers: _headers,
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': responseData};
+      }
+
+      return {
+        'success': false,
+        'error': responseData['message'] ??
+            responseData['error'] ??
+            'Erro ao deletar cliente',
       };
     } catch (e) {
       return {
