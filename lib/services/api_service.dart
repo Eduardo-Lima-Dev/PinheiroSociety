@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'https://pinheiro-society-api.vercel.app';
-  //static const String baseUrl = 'http://localhost:3000';
+  //static const String baseUrl = 'https://pinheiro-society-api.vercel.app';
+  static const String baseUrl = 'http://localhost:3000';
 
   // Headers padrão para as requisições
   static Map<String, String> get _headers => {
@@ -142,10 +142,10 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> getRelatorioClientes() async {
+  static Future<Map<String, dynamic>> getClientes() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/relatorios/clientes'),
-          headers: _headers);
+      final res =
+          await http.get(Uri.parse('$baseUrl/clientes'), headers: _headers);
       final data = jsonDecode(res.body);
       if (res.statusCode == 200) {
         return {'success': true, 'data': data};
@@ -153,6 +153,25 @@ class ApiService {
       return {
         'success': false,
         'error': data['message'] ?? 'Erro ao carregar clientes'
+      };
+    } catch (e) {
+      return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> buscarClientes(String query) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/clientes/buscar?q=$query'),
+        headers: _headers,
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {
+        'success': false,
+        'error': data['message'] ?? 'Erro ao buscar clientes'
       };
     } catch (e) {
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
@@ -243,6 +262,45 @@ class ApiService {
         'error': responseData['message'] ??
             responseData['error'] ??
             'Erro no cadastro do cliente',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Erro de conexão: ${e.toString()}',
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateCliente({
+    required String id,
+    required String nomeCompleto,
+    required String cpf,
+    required String email,
+    required String telefone,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/clientes/$id'),
+        headers: _headers,
+        body: jsonEncode({
+          'nomeCompleto': nomeCompleto,
+          'cpf': cpf,
+          'email': email,
+          'telefone': telefone,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': responseData};
+      }
+
+      return {
+        'success': false,
+        'error': responseData['message'] ??
+            responseData['error'] ??
+            'Erro na atualização do cliente',
       };
     } catch (e) {
       return {

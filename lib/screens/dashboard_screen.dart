@@ -24,35 +24,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Listas
   List<Map<String, String>> proximasReservas = [];
   List<Map<String, dynamic>> alertasEstoque = [];
+  List<Map<String, dynamic>> clientes = [];
   Timer? _autoRefreshTimer;
-  bool _mostrarTodasReservas = false;
-  String _selectedSection = 'inicio'; // 'inicio' | 'cadastro' | 'cliente'
+  String _selectedSection = 'inicio'; // 'inicio' | 'clientes'
 
-  // Controllers da seção de cadastro (mesmo modelo de Register)
-  final _registerFormKey = GlobalKey<FormState>();
-  final _regNameController = TextEditingController();
-  final _regEmailController = TextEditingController();
-  final _regPasswordController = TextEditingController();
-  bool _regIsPasswordVisible = false;
-  bool _regIsSubmitting = false;
+  // Controller para busca de clientes
+  final _searchController = TextEditingController();
+  Timer? _searchDebounceTimer;
 
-  // Controllers da seção de cadastro de cliente
-  final _clienteFormKey = GlobalKey<FormState>();
-  final _clienteNomeController = TextEditingController();
-  final _clienteEmailController = TextEditingController();
-  final _clienteTelefoneController = TextEditingController();
-  final _clienteCpfController = TextEditingController();
-  bool _clienteIsSubmitting = false;
+  // Controllers para modal de cliente
+  final _modalFormKey = GlobalKey<FormState>();
+  final _modalNomeController = TextEditingController();
+  final _modalEmailController = TextEditingController();
+  final _modalTelefoneController = TextEditingController();
+  final _modalCpfController = TextEditingController();
+  bool _modalIsSubmitting = false;
+  bool _isEditing = false;
+  Map<String, dynamic>? _clienteEditando;
 
   // Máscaras para CPF e Telefone
   final _cpfMaskFormatter = MaskTextInputFormatter(
     mask: '###.###.###-##',
     filter: {"#": RegExp(r'[0-9]')},
+    type: MaskAutoCompletionType.lazy,
   );
 
   final _telefoneMaskFormatter = MaskTextInputFormatter(
     mask: '(##) #####-####',
     filter: {"#": RegExp(r'[0-9]')},
+    type: MaskAutoCompletionType.lazy,
   );
 
   @override
@@ -73,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final dashboard = await ApiService.getDashboardSummary();
       final reservasResp = await ApiService.getReservas();
       final quadrasResp = await ApiService.getQuadras();
-      final clientesResp = await ApiService.getRelatorioClientes();
+      final clientesResp = await ApiService.getClientes();
 
       if (dashboard['success'] == true) {
         final data = dashboard['data'] as Map<String, dynamic>;
@@ -164,12 +164,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final lista = reservasResp['data'] as List<dynamic>;
         proximasReservas = lista.map((e) {
           final m = e as Map<String, dynamic>;
-          final name = _extractClienteNome(m['cliente']) ??
-              _asString(m['nomeCliente']) ??
-              'Cliente';
-          final quadra = _extractQuadraNome(m['quadra']) ??
-              _asString(m['campo']) ??
-              'Quadra';
+          final name = _extractClienteNome(m['cliente']).isEmpty
+              ? _asString(m['nomeCliente']).isEmpty
+                  ? 'Cliente'
+                  : _asString(m['nomeCliente'])
+              : _extractClienteNome(m['cliente']);
+          final quadra = _extractQuadraNome(m['quadra']).isEmpty
+              ? _asString(m['campo']).isEmpty
+                  ? 'Quadra'
+                  : _asString(m['campo'])
+              : _extractQuadraNome(m['quadra']);
           final time = _extractHorario(m);
           final status = _asString(m['status']);
           return {
@@ -180,6 +184,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }).toList();
       } else {
         _error ??= reservasResp['error']?.toString();
+      }
+
+      // Carregar lista de clientes
+      if (clientesResp['success'] == true) {
+        final listaClientes = clientesResp['data'];
+        if (listaClientes is List) {
+          clientes = listaClientes.map((e) {
+            final m = e as Map<String, dynamic>;
+            return {
+              'id': m['id']?.toString() ?? '',
+              'nomeCompleto': m['nomeCompleto']?.toString() ?? '',
+              'cpf': m['cpf']?.toString() ?? '',
+              'email': m['email']?.toString() ?? '',
+              'telefone': m['telefone']?.toString() ?? '',
+            };
+          }).toList();
+        }
       }
     } catch (e) {
       _error = 'Erro ao carregar dados: ${e.toString()}';
@@ -194,132 +215,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
-    _regNameController.dispose();
-    _regEmailController.dispose();
-    _regPasswordController.dispose();
+    _searchDebounceTimer?.cancel();
+    _searchController.dispose();
+    _modalNomeController.dispose();
+    _modalEmailController.dispose();
+    _modalTelefoneController.dispose();
+    _modalCpfController.dispose();
     super.dispose();
-  }
-
-  Future<void> _handleEmbeddedRegister() async {
-    if (!_registerFormKey.currentState!.validate()) return;
-    setState(() => _regIsSubmitting = true);
-    try {
-      final result = await ApiService.register(
-        name: _regNameController.text.trim(),
-        email: _regEmailController.text.trim(),
-        password: _regPasswordController.text,
-        role: 'ADMIN',
-      );
-      if (!mounted) return;
-      setState(() => _regIsSubmitting = false);
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Cadastro realizado com sucesso!'),
-              backgroundColor: Colors.green),
-        );
-        _regNameController.clear();
-        _regEmailController.clear();
-        _regPasswordController.clear();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(result['error'] ?? 'Erro no cadastro'),
-              backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _regIsSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Erro inesperado: ${e.toString()}'),
-            backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  Future<void> _cadastrarCliente() async {
-    if (!_clienteFormKey.currentState!.validate()) return;
-    setState(() => _clienteIsSubmitting = true);
-    try {
-      final result = await ApiService.createCliente(
-        nomeCompleto: _clienteNomeController.text.trim(),
-        cpf: _cpfMaskFormatter.getUnmaskedText(),
-        email: _clienteEmailController.text.trim(),
-        telefone: _telefoneMaskFormatter.getUnmaskedText(),
-      );
-
-      if (!mounted) return;
-      setState(() => _clienteIsSubmitting = false);
-
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Cliente cadastrado com sucesso!'),
-              backgroundColor: Colors.green),
-        );
-        _clienteNomeController.clear();
-        _clienteEmailController.clear();
-        _clienteTelefoneController.clear();
-        _clienteCpfController.clear();
-        _telefoneMaskFormatter.clear();
-        _cpfMaskFormatter.clear();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(result['error'] ?? 'Erro no cadastro'),
-              backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _clienteIsSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Erro inesperado: ${e.toString()}'),
-            backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  // Validação de CPF
-  bool _isValidCPF(String cpf) {
-    // Remove pontos e traços
-    cpf = cpf.replaceAll(RegExp(r'[^0-9]'), '');
-
-    // Verifica se tem 11 dígitos
-    if (cpf.length != 11) return false;
-
-    // Verifica se todos os dígitos são iguais
-    if (cpf.split('').every((digit) => digit == cpf[0])) return false;
-
-    // Algoritmo de validação do CPF
-    int sum = 0;
-    for (int i = 0; i < 9; i++) {
-      sum += int.parse(cpf[i]) * (10 - i);
-    }
-    int remainder = sum % 11;
-    int firstDigit = remainder < 2 ? 0 : 11 - remainder;
-
-    if (int.parse(cpf[9]) != firstDigit) return false;
-
-    sum = 0;
-    for (int i = 0; i < 10; i++) {
-      sum += int.parse(cpf[i]) * (11 - i);
-    }
-    remainder = sum % 11;
-    int secondDigit = remainder < 2 ? 0 : 11 - remainder;
-
-    return int.parse(cpf[10]) == secondDigit;
-  }
-
-  // Validação de telefone
-  bool _isValidPhone(String phone) {
-    // Remove caracteres especiais
-    String cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
-    // Verifica se tem 10 ou 11 dígitos (com ou sem DDD)
-    return cleanPhone.length == 10 || cleanPhone.length == 11;
   }
 
   String _asString(dynamic v) {
@@ -342,17 +244,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 'R\$ ${buffer.toString()},${parts[1]}';
   }
 
-  String? _extractClienteNome(dynamic cliente) {
-    if (cliente == null) return null;
+  String _formatCPF(String cpf) {
+    if (cpf.isEmpty) return 'Não informado';
+    // Remove caracteres não numéricos
+    final cleanCpf = cpf.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanCpf.length != 11) return cpf; // Retorna original se não for válido
+
+    // Aplica máscara: 000.000.000-00
+    return '${cleanCpf.substring(0, 3)}.${cleanCpf.substring(3, 6)}.${cleanCpf.substring(6, 9)}-${cleanCpf.substring(9)}';
+  }
+
+  String _formatTelefone(String telefone) {
+    if (telefone.isEmpty) return 'Não informado';
+    // Remove caracteres não numéricos
+    final cleanTel = telefone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanTel.length == 11) {
+      // Formato: (11) 99999-9999
+      return '(${cleanTel.substring(0, 2)}) ${cleanTel.substring(2, 7)}-${cleanTel.substring(7)}';
+    } else if (cleanTel.length == 10) {
+      // Formato: (11) 9999-9999
+      return '(${cleanTel.substring(0, 2)}) ${cleanTel.substring(2, 6)}-${cleanTel.substring(6)}';
+    }
+    return telefone; // Retorna original se não for válido
+  }
+
+  String _extractClienteNome(dynamic cliente) {
+    if (cliente == null) return '';
     if (cliente is Map<String, dynamic>) {
       return (cliente['nomeCompleto'] ?? cliente['nome'] ?? cliente['name'])
-          ?.toString();
+              ?.toString() ??
+          '';
     }
     return cliente.toString();
   }
 
-  String? _extractQuadraNome(dynamic quadra) {
-    if (quadra == null) return null;
+  String _extractQuadraNome(dynamic quadra) {
+    if (quadra == null) return '';
     if (quadra is Map<String, dynamic>) {
       final nome = quadra['nome'] ?? quadra['name'];
       if (nome != null) return nome.toString();
@@ -373,11 +300,210 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return h.toString();
   }
 
+  List<Map<String, dynamic>> _getFilteredClientes() {
+    final query = _searchController.text.toLowerCase().trim();
+    if (query.isEmpty) {
+      return clientes;
+    }
+
+    return clientes.where((cliente) {
+      final nome = cliente['nomeCompleto']?.toString().toLowerCase() ?? '';
+      return nome.contains(query);
+    }).toList();
+  }
+
+  Future<void> _buscarClientes() async {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      // Apenas atualiza a UI para refletir a filtragem local
+      if (mounted) {
+        setState(() {
+          // A filtragem é feita pelo _getFilteredClientes()
+        });
+      }
+    });
+  }
+
+  Future<void> _carregarClientes() async {
+    try {
+      final result = await ApiService.getClientes();
+      if (result['success'] == true) {
+        final listaClientes = result['data'];
+        if (listaClientes is List) {
+          setState(() {
+            clientes = listaClientes.map((e) {
+              final m = e as Map<String, dynamic>;
+              return {
+                'id': m['id']?.toString() ?? '',
+                'nomeCompleto': m['nomeCompleto']?.toString() ?? '',
+                'cpf': m['cpf']?.toString() ?? '',
+                'email': m['email']?.toString() ?? '',
+                'telefone': m['telefone']?.toString() ?? '',
+              };
+            }).toList();
+          });
+        }
+      }
+    } catch (e) {
+      // Em caso de erro, manter a lista atual
+    }
+  }
+
+  // Validação de CPF
+  bool _isValidCPF(String cpf) {
+    cpf = cpf.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cpf.length != 11) return false;
+    if (cpf.split('').every((digit) => digit == cpf[0])) return false;
+
+    int sum = 0;
+    for (int i = 0; i < 9; i++) {
+      sum += int.parse(cpf[i]) * (10 - i);
+    }
+    int remainder = sum % 11;
+    int firstDigit = remainder < 2 ? 0 : 11 - remainder;
+
+    if (int.parse(cpf[9]) != firstDigit) return false;
+
+    sum = 0;
+    for (int i = 0; i < 10; i++) {
+      sum += int.parse(cpf[i]) * (11 - i);
+    }
+    remainder = sum % 11;
+    int secondDigit = remainder < 2 ? 0 : 11 - remainder;
+
+    return int.parse(cpf[10]) == secondDigit;
+  }
+
+  // Validação de telefone
+  bool _isValidPhone(String phone) {
+    String cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    return cleanPhone.length == 10 || cleanPhone.length == 11;
+  }
+
+  void _abrirModalCliente({Map<String, dynamic>? cliente}) {
+    _isEditing = cliente != null;
+    _clienteEditando = cliente;
+
+    // Limpar ou preencher campos
+    _modalNomeController.text = cliente?['nomeCompleto'] ?? '';
+    _modalEmailController.text = cliente?['email'] ?? '';
+
+    // Para telefone e CPF, aplicar as máscaras corretamente
+    final telefone = cliente?['telefone'] ?? '';
+    final cpf = cliente?['cpf'] ?? '';
+
+    // Limpar controllers primeiro
+    _modalTelefoneController.clear();
+    _modalCpfController.clear();
+
+    // Aplicar valores formatados nos controllers
+    if (telefone.isNotEmpty) {
+      _modalTelefoneController.text = _formatTelefone(telefone);
+    }
+
+    if (cpf.isNotEmpty) {
+      _modalCpfController.text = _formatCPF(cpf);
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => _ClienteModal(
+        formKey: _modalFormKey,
+        nomeController: _modalNomeController,
+        emailController: _modalEmailController,
+        telefoneController: _modalTelefoneController,
+        cpfController: _modalCpfController,
+        cpfMaskFormatter: _cpfMaskFormatter,
+        telefoneMaskFormatter: _telefoneMaskFormatter,
+        isEditing: _isEditing,
+        isSubmitting: _modalIsSubmitting,
+        onSave: _salvarCliente,
+        onCancel: () => Navigator.of(context).pop(),
+        isValidCPF: _isValidCPF,
+        isValidPhone: _isValidPhone,
+      ),
+    );
+  }
+
+  Future<void> _salvarCliente() async {
+    if (!_modalFormKey.currentState!.validate()) return;
+
+    setState(() => _modalIsSubmitting = true);
+
+    try {
+      final result = _isEditing
+          ? await ApiService.updateCliente(
+              id: _clienteEditando!['id'],
+              nomeCompleto: _modalNomeController.text.trim(),
+              cpf: _cpfMaskFormatter.getUnmaskedText(),
+              email: _modalEmailController.text.trim(),
+              telefone: _telefoneMaskFormatter.getUnmaskedText(),
+            )
+          : await ApiService.createCliente(
+              nomeCompleto: _modalNomeController.text.trim(),
+              cpf: _cpfMaskFormatter.getUnmaskedText(),
+              email: _modalEmailController.text.trim(),
+              telefone: _telefoneMaskFormatter.getUnmaskedText(),
+            );
+
+      if (!mounted) return;
+      setState(() => _modalIsSubmitting = false);
+
+      if (result['success'] == true) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isEditing
+                ? 'Cliente atualizado com sucesso!'
+                : 'Cliente criado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _limparModal();
+        _carregarClientes();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['error'] ?? 'Erro ao salvar cliente'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _modalIsSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _limparModal() {
+    _modalNomeController.clear();
+    _modalEmailController.clear();
+    _modalTelefoneController.clear();
+    _modalCpfController.clear();
+    _isEditing = false;
+    _clienteEditando = null;
+  }
+
+  void _mostrarFuncionalidadeEmDesenvolvimento() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Funcionalidade em desenvolvimento'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const greenBackground = Color(0xFF0E5C3A); // fundo verde escuro
     const sidebarColor = Color(0xFF121416); // sidebar quase preta
-    const cardColor = Color(0xFF1B1E21); // cards/prateleiras
     const warningColor = Color(0xFF3A2A00); // alerta estoque baixo
 
     return Scaffold(
@@ -395,16 +521,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      // avatar
+                      // avatar - apenas ícone sem imagem
                       Container(
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: Colors.white12,
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         child: const Icon(Icons.sports_soccer,
-                            color: Colors.white70),
+                            color: Colors.white, size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -436,10 +562,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _lowStockBanner(warningColor),
-                ),
+                if (alertasEstoque.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _lowStockBanner(warningColor, alertasEstoque.length),
+                  ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: ListView(
@@ -451,30 +578,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           selected: _selectedSection == 'inicio',
                           onTap: () =>
                               setState(() => _selectedSection = 'inicio')),
-                      const _SidebarItem(
-                          icon: Icons.people_outline, label: 'Clientes'),
-                      const _SidebarItem(
+                      _SidebarItem(
+                          icon: Icons.people_outline,
+                          label: 'Clientes',
+                          selected: _selectedSection == 'clientes',
+                          onTap: () {
+                            setState(() => _selectedSection = 'clientes');
+                            _carregarClientes();
+                          }),
+                      _SidebarItem(
                           icon: Icons.event_note_outlined,
                           label: 'Agendamentos',
-                          badge: '3'),
-                      const _SidebarItem(
-                          icon: Icons.restaurant_menu, label: 'Mesas'),
-                      const _SidebarItem(
-                          icon: Icons.inventory_2_outlined, label: 'Estoque'),
-                      const _SidebarItem(
-                          icon: Icons.bar_chart_outlined, label: 'Relatórios'),
+                          badge: '3',
+                          onTap: () =>
+                              _mostrarFuncionalidadeEmDesenvolvimento()),
+                      _SidebarItem(
+                          icon: Icons.restaurant_menu,
+                          label: 'Mesas',
+                          onTap: () =>
+                              _mostrarFuncionalidadeEmDesenvolvimento()),
+                      _SidebarItem(
+                          icon: Icons.inventory_2_outlined,
+                          label: 'Estoque',
+                          onTap: () =>
+                              _mostrarFuncionalidadeEmDesenvolvimento()),
+                      _SidebarItem(
+                          icon: Icons.bar_chart_outlined,
+                          label: 'Relatórios',
+                          onTap: () =>
+                              _mostrarFuncionalidadeEmDesenvolvimento()),
                       _SidebarItem(
                           icon: Icons.person_add_alt_1,
                           label: 'Cadastro de Acesso',
-                          selected: _selectedSection == 'cadastro',
                           onTap: () =>
-                              setState(() => _selectedSection = 'cadastro')),
-                      _SidebarItem(
-                          icon: Icons.person_add,
-                          label: 'Cadastro de Cliente',
-                          selected: _selectedSection == 'cliente',
-                          onTap: () =>
-                              setState(() => _selectedSection = 'cliente')),
+                              _mostrarFuncionalidadeEmDesenvolvimento()),
                     ],
                   ),
                 ),
@@ -519,44 +656,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 GoogleFonts.poppins(color: Colors.redAccent)),
                       ),
                     ),
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Bem-vindo, Admin!',
-                              style: GoogleFonts.poppins(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                  // Header - apenas na seção início
+                  if (_selectedSection == 'inicio')
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Bem-vindo, Admin!',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'sexta-feira, 10 de outubro de 2025',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white70,
-                                fontSize: 13,
+                              Text(
+                                'sexta-feira, 10 de outubro de 2025',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          'ARENA\nPINHEIRO SOCIETY',
-                          textAlign: TextAlign.right,
-                          style: GoogleFonts.poppins(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2,
+                            ],
                           ),
-                        )
-                      ],
+                          // Logo no canto superior direito
+                          Image.asset(
+                            'assets/images/Logo.png',
+                            height: 40,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
                   // Stat cards - apenas na seção início
                   if (_selectedSection == 'inicio') ...[
@@ -596,7 +731,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  // Conteúdo alternável: Início (listas), Cadastro de Acesso ou Cadastro de Cliente
+                  // Conteúdo alternável: Início (listas), Clientes, Cadastro de Acesso ou Cadastro de Cliente
                   if (_selectedSection == 'inicio')
                     Expanded(
                       child: Padding(
@@ -608,44 +743,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               flex: 3,
                               child: _Panel(
                                 title: 'Próximas Reservas',
-                                action: TextButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _mostrarTodasReservas =
-                                          !_mostrarTodasReservas;
-                                    });
-                                  },
-                                  child: Text(
-                                    _mostrarTodasReservas
-                                        ? 'Mostrar menos'
-                                        : 'Mostrar todas',
-                                    style: GoogleFonts.poppins(
-                                        color: Colors.white70),
-                                  ),
-                                ),
                                 child: ListView(
-                                  children: proximasReservas
-                                      .map((r) {
-                                        final status =
-                                            (r['status'] ?? '').toLowerCase();
-                                        Color color;
-                                        if (status.contains('confirm')) {
-                                          color = Colors.green;
-                                        } else if (status.contains('aguard') ||
-                                            status.contains('pend')) {
-                                          color = Colors.amber;
-                                        } else {
-                                          color = Colors.blueAccent;
-                                        }
-                                        return _ReservationTile(
-                                          name: r['name'] ?? '—',
-                                          time: r['time'] ?? '—',
-                                          status: r['status'] ?? '—',
-                                          statusColor: color,
-                                        );
-                                      })
-                                      .take(_mostrarTodasReservas ? 9999 : 5)
-                                      .toList(),
+                                  children: proximasReservas.map((r) {
+                                    final status =
+                                        (r['status'] ?? '').toLowerCase();
+                                    Color color;
+                                    if (status.contains('confirm')) {
+                                      color = Colors.green;
+                                    } else if (status.contains('aguard') ||
+                                        status.contains('pend')) {
+                                      color = Colors.amber;
+                                    } else {
+                                      color = Colors.blueAccent;
+                                    }
+                                    return _ReservationTile(
+                                      name: r['name'] ?? '—',
+                                      time: r['time'] ?? '—',
+                                      status: r['status'] ?? '—',
+                                      statusColor: color,
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             ),
@@ -674,361 +791,171 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
 
-                  // Formulário de Cadastro de Acesso
-                  if (_selectedSection == 'cadastro')
+                  // Seção de Clientes
+                  if (_selectedSection == 'clientes')
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 8),
-                        child: Center(
-                          child: Container(
-                            width: 500,
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1B1E21),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Form(
-                              key: _registerFormKey,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text('Cadastro de Acesso',
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header da seção
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Clientes',
                                       style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 16),
-                                  Text('Nome',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white70)),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _regNameController,
-                                    keyboardType: TextInputType.name,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: 'João da Silva',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[400]),
-                                      filled: true,
-                                      fillColor: Colors.black.withOpacity(0.25),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          borderSide: BorderSide.none),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 16),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return 'Por favor, insira seu nome';
-                                      if (value.length < 2)
-                                        return 'O nome deve ter pelo menos 2 caracteres';
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text('Email',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white70)),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _regEmailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: 'exemplo@exemplo.com',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[400]),
-                                      filled: true,
-                                      fillColor: Colors.black.withOpacity(0.25),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          borderSide: BorderSide.none),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 16),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return 'Por favor, insira seu email';
-                                      final emailRegex = RegExp(
-                                          r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$');
-                                      if (!emailRegex.hasMatch(value))
-                                        return 'Por favor, insira um email válido';
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text('Senha',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white70)),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _regPasswordController,
-                                    obscureText: !_regIsPasswordVisible,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: 'Senha123',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[400]),
-                                      filled: true,
-                                      fillColor: Colors.black.withOpacity(0.25),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          borderSide: BorderSide.none),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 16),
-                                      suffixIcon: IconButton(
-                                        icon: Icon(
-                                          _regIsPasswordVisible
-                                              ? Icons.visibility_off
-                                              : Icons.visibility,
-                                          color: Colors.grey[400],
-                                        ),
-                                        onPressed: () => setState(() =>
-                                            _regIsPasswordVisible =
-                                                !_regIsPasswordVisible),
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
                                       ),
                                     ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return 'Por favor, insira sua senha';
-                                      if (value.length < 6)
-                                        return 'A senha deve ter pelo menos 6 caracteres';
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 20),
-                                  SizedBox(
-                                    height: 48,
-                                    child: ElevatedButton(
-                                      onPressed: _regIsSubmitting
-                                          ? null
-                                          : _handleEmbeddedRegister,
-                                      style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8)),
-                                          elevation: 0),
-                                      child: _regIsSubmitting
-                                          ? const SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(Colors.white)))
-                                          : Text('Cadastrar',
-                                              style: GoogleFonts.poppins(
-                                                  fontWeight: FontWeight.w600)),
+                                    Text(
+                                      'Gerencie o cadastro de clientes!',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                ),
+                                Image.asset(
+                                  'assets/images/Logo.png',
+                                  height: 40,
+                                  fit: BoxFit.contain,
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
+                            const SizedBox(height: 24),
 
-                  // Formulário de Cadastro de Cliente
-                  if (_selectedSection == 'cliente')
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: Center(
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 500),
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1B1E21),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Form(
-                              key: _clienteFormKey,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                            // Barra de busca e botão novo cliente
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1B1E21),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
                                 children: [
-                                  Text('Cadastro de Cliente',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 16),
-                                  Text('Nome Completo',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white70)),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _clienteNomeController,
-                                    keyboardType: TextInputType.name,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: 'João da Silva',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[400]),
-                                      filled: true,
-                                      fillColor: Colors.black.withOpacity(0.25),
-                                      border: OutlineInputBorder(
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchController,
+                                      style:
+                                          const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        hintText: 'Buscar por nome...',
+                                        hintStyle:
+                                            TextStyle(color: Colors.grey[400]),
+                                        prefixIcon: const Icon(Icons.search,
+                                            color: Colors.white70),
+                                        suffixIcon: _searchController
+                                                .text.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(Icons.clear,
+                                                    color: Colors.white70),
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                  _buscarClientes();
+                                                },
+                                              )
+                                            : null,
+                                        border: OutlineInputBorder(
                                           borderRadius:
                                               BorderRadius.circular(8),
-                                          borderSide: BorderSide.none),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 16),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        filled: true,
+                                        fillColor: const Color(0xFF2A2D30),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 16),
+                                      ),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          // Força a reconstrução para mostrar/esconder o botão de limpar
+                                        });
+                                        _buscarClientes();
+                                      },
                                     ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return 'Por favor, insira o nome completo';
-                                      if (value.length < 2)
-                                        return 'O nome deve ter pelo menos 2 caracteres';
-                                      return null;
-                                    },
                                   ),
-                                  const SizedBox(height: 16),
-                                  Text('Email',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white70)),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _clienteEmailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: 'exemplo@exemplo.com',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[400]),
-                                      filled: true,
-                                      fillColor: Colors.black.withOpacity(0.25),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          borderSide: BorderSide.none),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 16),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return 'Por favor, insira o email';
-                                      final emailRegex = RegExp(
-                                          r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$');
-                                      if (!emailRegex.hasMatch(value))
-                                        return 'Por favor, insira um email válido';
-                                      return null;
+                                  const SizedBox(width: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      _abrirModalCliente();
                                     },
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text('Telefone',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white70)),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _clienteTelefoneController,
-                                    keyboardType: TextInputType.phone,
-                                    inputFormatters: [_telefoneMaskFormatter],
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: '(11) 99999-9999',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[400]),
-                                      filled: true,
-                                      fillColor: Colors.black.withOpacity(0.25),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          borderSide: BorderSide.none),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 16),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return 'Por favor, insira o telefone';
-                                      if (!_isValidPhone(value))
-                                        return 'Por favor, insira um telefone válido';
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text('CPF',
-                                      style: GoogleFonts.poppins(
-                                          color: Colors.white70)),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _clienteCpfController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [_cpfMaskFormatter],
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: '000.000.000-00',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[400]),
-                                      filled: true,
-                                      fillColor: Colors.black.withOpacity(0.25),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          borderSide: BorderSide.none),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 16),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return 'Por favor, insira o CPF';
-                                      if (!_isValidCPF(value))
-                                        return 'Por favor, insira um CPF válido';
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-                                  ElevatedButton(
-                                    onPressed: _clienteIsSubmitting
-                                        ? null
-                                        : _cadastrarCliente,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF4A90E2),
+                                      backgroundColor: Colors.green,
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 16),
+                                          horizontal: 20, vertical: 16),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    child: _clienteIsSubmitting
-                                        ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      Colors.white),
-                                            ),
-                                          )
-                                        : Text(
-                                            'Cadastrar Cliente',
-                                            style: GoogleFonts.poppins(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
+                                    icon: const Icon(Icons.add),
+                                    label: Text(
+                                      'Novo Cliente',
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 24),
+
+                            // Lista de clientes
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1B1E21),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${_getFilteredClientes().length} Clientes',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Expanded(
+                                      child: ListView.builder(
+                                        itemCount:
+                                            _getFilteredClientes().length,
+                                        itemBuilder: (context, index) {
+                                          final cliente =
+                                              _getFilteredClientes()[index];
+                                          return _ClienteCard(
+                                            cliente: cliente,
+                                            onEdit: () {
+                                              _abrirModalCliente(
+                                                  cliente: cliente);
+                                            },
+                                            onDelete: () {
+                                              // TODO: Implementar exclusão
+                                            },
+                                            formatCPF: _formatCPF,
+                                            formatTelefone: _formatTelefone,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1043,7 +970,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // Sidebar banner
-Widget _lowStockBanner(Color warningColor) {
+Widget _lowStockBanner(Color warningColor, int itemCount) {
   return Container(
     decoration: BoxDecoration(
       color: warningColor,
@@ -1056,7 +983,7 @@ Widget _lowStockBanner(Color warningColor) {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            '2 itens com\nestoque baixo',
+            '$itemCount ${itemCount == 1 ? 'item com' : 'itens com'}\nestoque baixo',
             style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
           ),
         ),
@@ -1290,6 +1217,335 @@ class _StockAlertTile extends StatelessWidget {
           Text('Estoque atual: $current | Mínimo: $min',
               style: GoogleFonts.poppins(color: Colors.amber, fontSize: 12)),
         ],
+      ),
+    );
+  }
+}
+
+class _ClienteCard extends StatelessWidget {
+  final Map<String, dynamic> cliente;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final String Function(String) formatCPF;
+  final String Function(String) formatTelefone;
+
+  const _ClienteCard({
+    super.key,
+    required this.cliente,
+    required this.onEdit,
+    required this.onDelete,
+    required this.formatCPF,
+    required this.formatTelefone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2D30),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cliente['nomeCompleto'] ?? 'Nome não informado',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'CPF: ${formatCPF(cliente['cpf']?.toString() ?? '')}',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Email: ${cliente['email'] ?? 'Não informado'}',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Tel: ${formatTelefone(cliente['telefone']?.toString() ?? '')}',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit, color: Colors.white70),
+                tooltip: 'Editar cliente',
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                tooltip: 'Excluir cliente',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClienteModal extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController nomeController;
+  final TextEditingController emailController;
+  final TextEditingController telefoneController;
+  final TextEditingController cpfController;
+  final MaskTextInputFormatter cpfMaskFormatter;
+  final MaskTextInputFormatter telefoneMaskFormatter;
+  final bool isEditing;
+  final bool isSubmitting;
+  final VoidCallback onSave;
+  final VoidCallback onCancel;
+  final bool Function(String) isValidCPF;
+  final bool Function(String) isValidPhone;
+
+  const _ClienteModal({
+    super.key,
+    required this.formKey,
+    required this.nomeController,
+    required this.emailController,
+    required this.telefoneController,
+    required this.cpfController,
+    required this.cpfMaskFormatter,
+    required this.telefoneMaskFormatter,
+    required this.isEditing,
+    required this.isSubmitting,
+    required this.onSave,
+    required this.onCancel,
+    required this.isValidCPF,
+    required this.isValidPhone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF1B1E21),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 500,
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                isEditing ? 'Editar Cliente' : 'Novo Cliente',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Nome Completo
+              Text(
+                'Nome Completo',
+                style: GoogleFonts.poppins(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: nomeController,
+                keyboardType: TextInputType.name,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'João da Silva',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  filled: true,
+                  fillColor: Colors.black.withOpacity(0.25),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty)
+                    return 'Por favor, insira o nome completo';
+                  if (value.length < 2)
+                    return 'O nome deve ter pelo menos 2 caracteres';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Email
+              Text(
+                'Email',
+                style: GoogleFonts.poppins(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'exemplo@exemplo.com',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  filled: true,
+                  fillColor: Colors.black.withOpacity(0.25),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty)
+                    return 'Por favor, insira o email';
+                  final emailRegex =
+                      RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$');
+                  if (!emailRegex.hasMatch(value))
+                    return 'Por favor, insira um email válido';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Telefone
+              Text(
+                'Telefone',
+                style: GoogleFonts.poppins(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: telefoneController,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [telefoneMaskFormatter],
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: '(11) 99999-9999',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  filled: true,
+                  fillColor: Colors.black.withOpacity(0.25),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty)
+                    return 'Por favor, insira o telefone';
+                  if (!isValidPhone(value))
+                    return 'Por favor, insira um telefone válido';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // CPF
+              Text(
+                'CPF',
+                style: GoogleFonts.poppins(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: cpfController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [cpfMaskFormatter],
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: '000.000.000-00',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  filled: true,
+                  fillColor: Colors.black.withOpacity(0.25),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty)
+                    return 'Por favor, insira o CPF';
+                  if (!isValidCPF(value))
+                    return 'Por favor, insira um CPF válido';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Botões
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: isSubmitting ? null : onCancel,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        'Cancelar',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: isSubmitting ? null : onSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              isEditing ? 'Atualizar' : 'Criar',
+                              style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
