@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../services/user_storage.dart';
 import 'dart:async';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
@@ -14,6 +15,8 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   String? _error;
+  String _userName = 'Usuário';
+  bool _isAdmin = false;
 
   // Métricas
   String reservasHoje = '-';
@@ -26,7 +29,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> alertasEstoque = [];
   List<Map<String, dynamic>> clientes = [];
   Timer? _autoRefreshTimer;
-  String _selectedSection = 'inicio'; // 'inicio' | 'clientes'
+  String _selectedSection =
+      'inicio'; // 'inicio' | 'clientes' | 'cadastro-acesso' | 'agendamentos'
 
   // Controller para busca de clientes
   final _searchController = TextEditingController();
@@ -41,6 +45,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _modalIsSubmitting = false;
   bool _isEditing = false;
   Map<String, dynamic>? _clienteEditando;
+
+  // Controllers para cadastro de acesso
+  final _cadastroAcessoFormKey = GlobalKey<FormState>();
+  final _cadastroNomeController = TextEditingController();
+  final _cadastroEmailController = TextEditingController();
+  final _cadastroSenhaController = TextEditingController();
+  final _cadastroConfirmarSenhaController = TextEditingController();
+  bool _cadastroSenhaVisivel = false;
+  bool _cadastroConfirmarSenhaVisivel = false;
+  bool _cadastroIsSubmitting = false;
+  String _cadastroRoleSelecionada = 'ADMIN';
+
+  // Lista de roles disponíveis
+  final List<Map<String, String>> _rolesDisponiveis = [
+    {'value': 'ADMIN', 'label': 'Administrador'},
+    {'value': 'USER', 'label': 'Funcionário'},
+  ];
+
+  // Variáveis para agendamentos
+  DateTime _dataSelecionada = DateTime.now();
+  final TextEditingController _dataController = TextEditingController();
+  List<Map<String, dynamic>> _quadrasApi = [];
+  List<Map<String, dynamic>> _reservasApi = [];
+  List<String> _horariosDisponiveis = [];
+  bool _isLoadingAgendamentos = false;
 
   // Máscaras para CPF e Telefone
   final _cpfMaskFormatter = MaskTextInputFormatter(
@@ -58,9 +87,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _carregarNomeUsuario();
     _carregarDados();
+    _atualizarDataController(); // Inicializar o controller da data
     _autoRefreshTimer =
         Timer.periodic(const Duration(seconds: 30), (_) => _carregarDados());
+  }
+
+  Future<void> _carregarNomeUsuario() async {
+    final userName = await UserStorage.getUserName();
+    final isAdmin = await UserStorage.isAdmin();
+    if (mounted) {
+      setState(() {
+        _userName = userName;
+        _isAdmin = isAdmin;
+        // Se não for admin e estiver na seção de cadastro de acesso, redirecionar para início
+        if (!isAdmin && _selectedSection == 'cadastro-acesso') {
+          _selectedSection = 'inicio';
+        }
+      });
+    }
   }
 
   Future<void> _carregarDados() async {
@@ -162,7 +208,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (reservasResp['success'] == true) {
         final lista = reservasResp['data'] as List<dynamic>;
-        proximasReservas = lista.map((e) {
+        // Filtrar apenas reservas dos próximos 3 dias (hoje + 2 dias)
+        final reservasFiltradas = lista.where((e) {
+          final m = e as Map<String, dynamic>;
+          return _isReservaWithinNext3Days(m);
+        }).toList();
+
+        proximasReservas = reservasFiltradas.map((e) {
           final m = e as Map<String, dynamic>;
           final name = _extractClienteNome(m['cliente']).isEmpty
               ? _asString(m['nomeCliente']).isEmpty
@@ -175,10 +227,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   : _asString(m['campo'])
               : _extractQuadraNome(m['quadra']);
           final time = _extractHorario(m);
+          final data = _extractData(m);
           final status = _asString(m['status']);
+
           return {
             'name': name,
             'time': '$quadra · $time',
+            'data': data,
             'status': status.isEmpty ? '—' : status,
           };
         }).toList();
@@ -221,6 +276,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _modalEmailController.dispose();
     _modalTelefoneController.dispose();
     _modalCpfController.dispose();
+    _cadastroNomeController.dispose();
+    _cadastroEmailController.dispose();
+    _cadastroSenhaController.dispose();
+    _cadastroConfirmarSenhaController.dispose();
+    _dataController.dispose();
     super.dispose();
   }
 
@@ -298,6 +358,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return '${h.toString().padLeft(2, '0')}:00';
     }
     return h.toString();
+  }
+
+  String _extractData(Map<String, dynamic> reserva) {
+    // Tentar diferentes campos possíveis para a data
+    final data = reserva['data'] ??
+        reserva['date'] ??
+        reserva['dia'] ??
+        reserva['dataReserva'] ??
+        reserva['createdAt'] ??
+        reserva['updatedAt'] ??
+        reserva['dataAgendamento'] ??
+        reserva['agendamento'] ??
+        reserva['reservaData'];
+
+    if (data == null) {
+      return '-';
+    }
+
+    // Se a data vem como string, tentar formatar
+    if (data is String) {
+      try {
+        // Assumindo formato ISO ou similar: "2024-01-15" ou "2024-01-15T10:00:00Z"
+        final dateOnly = data.split('T')[0];
+        final parts = dateOnly.split('-');
+        if (parts.length == 3) {
+          // Formato: DD/MM/YYYY
+          return '${parts[2]}/${parts[1]}/${parts[0]}';
+        }
+        return dateOnly;
+      } catch (e) {
+        return data;
+      }
+    }
+
+    return data.toString();
+  }
+
+  /// Verifica se uma reserva está dentro dos próximos 3 dias (hoje + 2 dias)
+  bool _isReservaWithinNext3Days(Map<String, dynamic> reserva) {
+    try {
+      final data = reserva['data'] ??
+          reserva['date'] ??
+          reserva['dia'] ??
+          reserva['dataReserva'] ??
+          reserva['createdAt'] ??
+          reserva['updatedAt'] ??
+          reserva['dataAgendamento'] ??
+          reserva['agendamento'] ??
+          reserva['reservaData'];
+
+      if (data == null) return false;
+
+      DateTime? reservaDate;
+
+      if (data is String) {
+        try {
+          // Tentar diferentes formatos de data
+          final dateOnly = data.split('T')[0];
+          final parts = dateOnly.split('-');
+          if (parts.length == 3) {
+            // Formato YYYY-MM-DD
+            final year = int.parse(parts[0]);
+            final month = int.parse(parts[1]);
+            final day = int.parse(parts[2]);
+            reservaDate = DateTime(year, month, day);
+          } else {
+            // Tentar parse direto
+            reservaDate = DateTime.parse(data);
+          }
+        } catch (e) {
+          return false;
+        }
+      } else if (data is DateTime) {
+        reservaDate = data;
+      }
+
+      if (reservaDate == null) return false;
+
+      // Pegar data atual (sem hora)
+      final hoje = DateTime.now();
+      final hojeLimpo = DateTime(hoje.year, hoje.month, hoje.day);
+
+      // Limpar hora da data da reserva
+      final reservaDateLimpo =
+          DateTime(reservaDate.year, reservaDate.month, reservaDate.day);
+
+      // Calcular diferença em dias
+      final diasDiferenca = reservaDateLimpo.difference(hojeLimpo).inDays;
+
+      // Retorna true se estiver entre hoje (0 dias) e 2 dias no futuro (2 dias)
+      return diasDiferenca >= 0 && diasDiferenca <= 2;
+    } catch (e) {
+      return false;
+    }
   }
 
   List<Map<String, dynamic>> _getFilteredClientes() {
@@ -488,6 +642,530 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _modalCpfController.clear();
     _isEditing = false;
     _clienteEditando = null;
+  }
+
+  Future<void> _salvarCadastroAcesso() async {
+    if (!_cadastroAcessoFormKey.currentState!.validate()) return;
+
+    setState(() => _cadastroIsSubmitting = true);
+
+    try {
+      final result = await ApiService.register(
+        name: _cadastroNomeController.text.trim(),
+        email: _cadastroEmailController.text.trim(),
+        password: _cadastroSenhaController.text,
+        role: _cadastroRoleSelecionada,
+      );
+
+      if (!mounted) return;
+      setState(() => _cadastroIsSubmitting = false);
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Usuário criado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _limparFormularioCadastroAcesso();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['error'] ?? 'Erro ao criar usuário'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cadastroIsSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _limparFormularioCadastroAcesso() {
+    _cadastroNomeController.clear();
+    _cadastroEmailController.clear();
+    _cadastroSenhaController.clear();
+    _cadastroConfirmarSenhaController.clear();
+    _cadastroSenhaVisivel = false;
+    _cadastroConfirmarSenhaVisivel = false;
+    _cadastroRoleSelecionada = 'ADMIN';
+  }
+
+  void _atualizarDataController() {
+    final formatter = '${_dataSelecionada.day.toString().padLeft(2, '0')}/'
+        '${_dataSelecionada.month.toString().padLeft(2, '0')}/'
+        '${_dataSelecionada.year}';
+    _dataController.text = formatter;
+  }
+
+  Future<void> _carregarDadosAgendamentos() async {
+    if (_selectedSection != 'agendamentos') return;
+
+    setState(() {
+      _isLoadingAgendamentos = true;
+    });
+
+    try {
+      // Carregar quadras
+      final quadrasResp = await ApiService.getQuadras();
+      if (quadrasResp['success'] == true) {
+        _quadrasApi =
+            List<Map<String, dynamic>>.from(quadrasResp['data'] ?? []);
+      }
+
+      // Carregar reservas para a data selecionada
+      final reservasResp = await ApiService.getReservas();
+      if (reservasResp['success'] == true) {
+        final todasReservas =
+            List<Map<String, dynamic>>.from(reservasResp['data'] ?? []);
+
+        // Filtrar reservas para a data selecionada
+        final dataFormatada = _formatarDataParaAPI(_dataSelecionada);
+        _reservasApi = todasReservas.where((reserva) {
+          final dataReserva = _extrairDataReserva(reserva);
+          return dataReserva == dataFormatada;
+        }).toList();
+      }
+
+      // Carregar disponibilidade de cada quadra para a data selecionada
+      for (var quadra in _quadrasApi) {
+        final quadraId = quadra['id'];
+        if (quadraId != null) {
+          final dataFormatada = _formatarDataParaAPI(_dataSelecionada);
+          final disponibilidadeResp = await ApiService.getDisponibilidadeQuadra(
+            quadraId: int.tryParse(quadraId.toString()) ?? 0,
+            data: dataFormatada,
+          );
+
+          if (disponibilidadeResp['success'] == true) {
+            quadra['disponibilidade'] = disponibilidadeResp['data'];
+          }
+        }
+      }
+
+      // Extrair todos os horários disponíveis do sistema
+      _extrairHorariosDisponiveis();
+    } catch (e) {
+      print('Erro ao carregar dados de agendamentos: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingAgendamentos = false;
+      });
+    }
+  }
+
+  void _extrairHorariosDisponiveis() {
+    Set<String> horariosUnicos = {};
+
+    // Coletar horários das reservas
+    for (var reserva in _reservasApi) {
+      final horario = _extrairHorarioReserva(reserva);
+      if (horario.isNotEmpty) {
+        horariosUnicos.add(horario);
+      }
+    }
+
+    // Coletar horários das próprias quadras (configuração de funcionamento)
+    for (var quadra in _quadrasApi) {
+      // Verificar se a quadra tem configuração de horários
+      final horariosConfig = quadra['horarios'] ??
+          quadra['horariosFuncionamento'] ??
+          quadra['workingHours'] ??
+          quadra['horariosDisponiveis'];
+
+      if (horariosConfig != null) {
+        if (horariosConfig is List) {
+          for (var item in horariosConfig) {
+            if (item != null) {
+              final horarioStr = item.toString();
+              if (_isHorarioValido(horarioStr)) {
+                horariosUnicos.add(_formatarHorario(horarioStr));
+              }
+            }
+          }
+        } else if (horariosConfig is Map<String, dynamic>) {
+          final inicio = horariosConfig['inicio'] ?? horariosConfig['start'];
+          final fim = horariosConfig['fim'] ?? horariosConfig['end'];
+          if (inicio != null && fim != null) {
+            _adicionarHorariosEntre(inicio, fim, horariosUnicos);
+          }
+        }
+      }
+
+      // Coletar horários da disponibilidade das quadras
+      final disponibilidade = quadra['disponibilidade'];
+      if (disponibilidade != null) {
+        if (disponibilidade is List) {
+          for (var item in disponibilidade) {
+            if (item != null) {
+              final horarioStr = item.toString();
+              if (_isHorarioValido(horarioStr)) {
+                horariosUnicos.add(_formatarHorario(horarioStr));
+              }
+            }
+          }
+        } else if (disponibilidade is Map<String, dynamic>) {
+          final horariosDisponiveis = disponibilidade['horarios'] ??
+              disponibilidade['disponiveis'] ??
+              disponibilidade['available'] ??
+              disponibilidade['slots'];
+          if (horariosDisponiveis is List) {
+            for (var item in horariosDisponiveis) {
+              if (item != null) {
+                final horarioStr = item.toString();
+                if (_isHorarioValido(horarioStr)) {
+                  horariosUnicos.add(_formatarHorario(horarioStr));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Converter para lista e ordenar
+    _horariosDisponiveis = horariosUnicos.toList();
+    _horariosDisponiveis.sort((a, b) => a.compareTo(b));
+
+    // Se não encontrou horários, usar padrão
+    if (_horariosDisponiveis.isEmpty) {
+      _horariosDisponiveis = [
+        '08:00',
+        '09:00',
+        '10:00',
+        '11:00',
+        '12:00',
+        '13:00',
+        '14:00',
+        '15:00',
+        '16:00',
+        '17:00',
+        '18:00',
+        '19:00',
+        '20:00',
+        '21:00',
+        '22:00'
+      ];
+    }
+  }
+
+  bool _isHorarioValido(String horario) {
+    if (horario.isEmpty) return false;
+
+    // Verificar se está no formato HH:mm ou H:mm
+    final regex = RegExp(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$');
+    return regex.hasMatch(horario);
+  }
+
+  String _formatarHorario(String horario) {
+    // Se já está no formato correto, retornar
+    if (_isHorarioValido(horario)) {
+      // Adicionar zero à esquerda se necessário (ex: 9:00 -> 09:00)
+      final parts = horario.split(':');
+      if (parts.length == 2) {
+        final hora = parts[0].padLeft(2, '0');
+        final minuto = parts[1];
+        return '$hora:$minuto';
+      }
+    }
+
+    // Se é apenas um número (ex: 9, 18), converter para HH:00
+    final horaInt = int.tryParse(horario);
+    if (horaInt != null && horaInt >= 0 && horaInt <= 23) {
+      return '${horaInt.toString().padLeft(2, '0')}:00';
+    }
+
+    return horario;
+  }
+
+  void _adicionarHorariosEntre(
+      dynamic inicio, dynamic fim, Set<String> horariosUnicos) {
+    try {
+      int horaInicio;
+      int horaFim;
+
+      // Converter entrada para int (assumindo que são horas como 8, 9, 18, etc.)
+      if (inicio is int) {
+        horaInicio = inicio;
+      } else if (inicio is String) {
+        if (inicio.contains(':')) {
+          horaInicio = int.parse(inicio.split(':')[0]);
+        } else {
+          horaInicio = int.parse(inicio);
+        }
+      } else {
+        return;
+      }
+
+      if (fim is int) {
+        horaFim = fim;
+      } else if (fim is String) {
+        if (fim.contains(':')) {
+          horaFim = int.parse(fim.split(':')[0]);
+        } else {
+          horaFim = int.parse(fim);
+        }
+      } else {
+        return;
+      }
+
+      // Adicionar horários de hora em hora entre inicio e fim
+      for (int h = horaInicio; h <= horaFim; h++) {
+        if (h >= 0 && h <= 23) {
+          horariosUnicos.add('${h.toString().padLeft(2, '0')}:00');
+        }
+      }
+    } catch (e) {
+      // Em caso de erro na conversão, não adicionar horários
+    }
+  }
+
+  String _formatarDataParaAPI(DateTime data) {
+    return '${data.year.toString().padLeft(4, '0')}-'
+        '${data.month.toString().padLeft(2, '0')}-'
+        '${data.day.toString().padLeft(2, '0')}';
+  }
+
+  String _extrairDataReserva(Map<String, dynamic> reserva) {
+    final data = reserva['data'] ??
+        reserva['dataReserva'] ??
+        reserva['dataAgendamento'] ??
+        reserva['createdAt'];
+
+    if (data == null) return '';
+
+    if (data is String) {
+      try {
+        final dateOnly = data.split('T')[0];
+        return dateOnly; // Já deve estar no formato YYYY-MM-DD
+      } catch (e) {
+        return '';
+      }
+    }
+
+    return data.toString();
+  }
+
+  void _irParaDataAnterior() {
+    setState(() {
+      _dataSelecionada = _dataSelecionada.subtract(const Duration(days: 1));
+      _atualizarDataController();
+    });
+    _carregarDadosAgendamentos();
+  }
+
+  void _irParaHoje() {
+    setState(() {
+      _dataSelecionada = DateTime.now();
+      _atualizarDataController();
+    });
+    _carregarDadosAgendamentos();
+  }
+
+  void _irParaProximaData() {
+    setState(() {
+      _dataSelecionada = _dataSelecionada.add(const Duration(days: 1));
+      _atualizarDataController();
+    });
+    _carregarDadosAgendamentos();
+  }
+
+  // Função para construir as quadras com dados reais da API
+  List<Map<String, dynamic>> _getQuadras() {
+    if (_quadrasApi.isEmpty) {
+      return [];
+    }
+
+    return _quadrasApi.map((quadraApi) {
+      final nome = quadraApi['nome']?.toString() ?? 'Quadra sem nome';
+      final id = quadraApi['id']?.toString();
+
+      // Buscar reservas desta quadra para a data selecionada
+      final reservasQuadra = _reservasApi.where((reserva) {
+        final quadraReserva = reserva['quadra'];
+        String? idQuadraReserva;
+
+        if (quadraReserva is Map<String, dynamic>) {
+          idQuadraReserva = quadraReserva['id']?.toString();
+        } else {
+          idQuadraReserva = quadraReserva?.toString();
+        }
+
+        return idQuadraReserva == id;
+      }).toList();
+
+      // Construir horários baseado na disponibilidade e reservas
+      List<Map<String, dynamic>> horarios = [];
+
+      for (String hora in _getHorarios()) {
+        // Verificar se há reserva neste horário
+        Map<String, dynamic> reservaHora = {};
+        try {
+          reservaHora = reservasQuadra.firstWhere(
+            (reserva) {
+              final horarioReserva = _extrairHorarioReserva(reserva);
+              return horarioReserva == hora;
+            },
+          );
+        } catch (e) {
+          // Nenhuma reserva encontrada para este horário
+          reservaHora = {};
+        }
+
+        Map<String, dynamic> horario;
+        if (reservaHora.isNotEmpty) {
+          // Há reserva neste horário
+          final status =
+              reservaHora['status']?.toString().toLowerCase() ?? 'confirmado';
+          horario = {
+            'hora': hora,
+            'status': status,
+            'texto': _getTextoStatus(status),
+            'reserva': reservaHora,
+          };
+        } else {
+          // Verificar disponibilidade na API
+          final disponibilidade = quadraApi['disponibilidade'];
+          final isDisponivel =
+              _verificarDisponibilidadeHorario(disponibilidade, hora);
+
+          horario = {
+            'hora': hora,
+            'status': isDisponivel ? 'disponivel' : 'bloqueado',
+            'texto': isDisponivel ? 'Disponível' : 'Bloqueado',
+          };
+        }
+
+        horarios.add(horario);
+      }
+
+      return {
+        'id': id,
+        'nome': nome,
+        'horarios': horarios,
+      };
+    }).toList();
+  }
+
+  String _extrairHorarioReserva(Map<String, dynamic> reserva) {
+    final horario = reserva['horario'] ??
+        reserva['hora'] ??
+        reserva['inicio'] ??
+        reserva['time'];
+
+    if (horario == null) return '';
+
+    if (horario is int) {
+      return '${horario.toString().padLeft(2, '0')}:00';
+    }
+
+    if (horario is String) {
+      // Se já está no formato HH:mm, retornar
+      if (horario.contains(':')) {
+        return horario;
+      }
+      // Se é apenas um número, converter para HH:00
+      final horarioInt = int.tryParse(horario);
+      if (horarioInt != null) {
+        return '${horarioInt.toString().padLeft(2, '0')}:00';
+      }
+    }
+
+    return horario.toString();
+  }
+
+  String _getTextoStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'confirmado':
+      case 'confirmed':
+        return 'Confirmado';
+      case 'cancelado':
+      case 'cancelled':
+        return 'Cancelado';
+      case 'pendente':
+      case 'pending':
+        return 'Pendente';
+      case 'pre-reserva':
+      case 'prereserva':
+        return 'Pré-reserva';
+      case 'bloqueado':
+      case 'blocked':
+        return 'Bloqueado';
+      default:
+        return 'Confirmado';
+    }
+  }
+
+  bool _verificarDisponibilidadeHorario(dynamic disponibilidade, String hora) {
+    if (disponibilidade == null) return true;
+
+    // Se disponibilidade é uma lista de horários disponíveis
+    if (disponibilidade is List) {
+      return disponibilidade.contains(hora) ||
+          disponibilidade
+              .any((item) => item.toString().contains(hora.split(':')[0]));
+    }
+
+    // Se disponibilidade é um objeto com horários
+    if (disponibilidade is Map<String, dynamic>) {
+      final horariosDisponiveis = disponibilidade['horarios'] ??
+          disponibilidade['disponiveis'] ??
+          disponibilidade['available'];
+      if (horariosDisponiveis is List) {
+        return horariosDisponiveis.contains(hora);
+      }
+    }
+
+    // Por padrão, considerar disponível
+    return true;
+  }
+
+  List<String> _getHorarios() {
+    // Retorna os horários carregados da API ou fallback para padrão
+    if (_horariosDisponiveis.isNotEmpty) {
+      return _horariosDisponiveis;
+    }
+
+    // Fallback para horários padrão se ainda não carregou
+    return [
+      '08:00',
+      '09:00',
+      '10:00',
+      '11:00',
+      '12:00',
+      '13:00',
+      '14:00',
+      '15:00',
+      '16:00',
+      '17:00',
+      '18:00',
+      '19:00',
+      '20:00',
+      '21:00',
+      '22:00'
+    ];
+  }
+
+  Color _getCorStatus(String status) {
+    switch (status) {
+      case 'confirmado':
+        return Colors.green;
+      case 'pre-reserva':
+        return Colors.blue;
+      case 'bloqueado':
+        return Colors.black;
+      default:
+        return Colors.grey;
+    }
   }
 
   void _mostrarFuncionalidadeEmDesenvolvimento() {
@@ -775,8 +1453,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.event_note_outlined,
                           label: 'Agendamentos',
                           badge: '3',
-                          onTap: () =>
-                              _mostrarFuncionalidadeEmDesenvolvimento()),
+                          selected: _selectedSection == 'agendamentos',
+                          onTap: () {
+                            setState(() => _selectedSection = 'agendamentos');
+                            _carregarDadosAgendamentos();
+                          }),
                       _SidebarItem(
                           icon: Icons.restaurant_menu,
                           label: 'Mesas',
@@ -792,19 +1473,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           label: 'Relatórios',
                           onTap: () =>
                               _mostrarFuncionalidadeEmDesenvolvimento()),
-                      _SidebarItem(
-                          icon: Icons.person_add_alt_1,
-                          label: 'Cadastro de Acesso',
-                          onTap: () =>
-                              _mostrarFuncionalidadeEmDesenvolvimento()),
+                      if (_isAdmin)
+                        _SidebarItem(
+                            icon: Icons.person_add_alt_1,
+                            label: 'Cadastro de Acesso',
+                            selected: _selectedSection == 'cadastro-acesso',
+                            onTap: () {
+                              setState(
+                                  () => _selectedSection = 'cadastro-acesso');
+                            }),
                     ],
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: TextButton.icon(
-                    onPressed: () =>
-                        Navigator.of(context).pushReplacementNamed('/login'),
+                    onPressed: () async {
+                      await UserStorage.clearUserData();
+                      if (mounted) {
+                        Navigator.of(context).pushReplacementNamed('/login');
+                      }
+                    },
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.white70,
                     ),
@@ -852,7 +1541,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Bem-vindo, Admin!',
+                                'Bem-vindo, $_userName!',
                                 style: GoogleFonts.poppins(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w700,
@@ -896,13 +1585,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   value: totalClientes,
                                   subtitle: null,
                                   icon: Icons.people_outline)),
-                          const SizedBox(width: 16),
-                          Expanded(
-                              child: _StatCard(
-                                  title: 'Receita Hoje',
-                                  value: receitaHoje,
-                                  subtitle: null,
-                                  icon: Icons.attach_money)),
+                          if (_isAdmin) ...[
+                            const SizedBox(width: 16),
+                            Expanded(
+                                child: _StatCard(
+                                    title: 'Receita Hoje',
+                                    value: receitaHoje,
+                                    subtitle: null,
+                                    icon: Icons.attach_money)),
+                          ],
                           const SizedBox(width: 16),
                           Expanded(
                               child: _StatCard(
@@ -928,27 +1619,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               flex: 3,
                               child: _Panel(
                                 title: 'Próximas Reservas',
-                                child: ListView(
-                                  children: proximasReservas.map((r) {
-                                    final status =
-                                        (r['status'] ?? '').toLowerCase();
-                                    Color color;
-                                    if (status.contains('confirm')) {
-                                      color = Colors.green;
-                                    } else if (status.contains('aguard') ||
-                                        status.contains('pend')) {
-                                      color = Colors.amber;
-                                    } else {
-                                      color = Colors.blueAccent;
-                                    }
-                                    return _ReservationTile(
-                                      name: r['name'] ?? '—',
-                                      time: r['time'] ?? '—',
-                                      status: r['status'] ?? '—',
-                                      statusColor: color,
-                                    );
-                                  }).toList(),
-                                ),
+                                child: proximasReservas.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today_outlined,
+                                              size: 48,
+                                              color: Colors.white30,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Nenhuma reserva próxima',
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.white60,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Não há reservas para os próximos 3 dias',
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.white
+                                                    .withOpacity(0.4),
+                                                fontSize: 12,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : ListView(
+                                        children: proximasReservas.map((r) {
+                                          final status =
+                                              (r['status'] ?? '').toLowerCase();
+                                          Color color;
+                                          // Cores específicas para diferentes status
+                                          if (status.contains('confirm') ||
+                                              status.contains('confirmado')) {
+                                            color = Colors
+                                                .green; // Verde para confirmado/ativo
+                                          } else if (status
+                                                  .contains('cancel') ||
+                                              status.contains('cancelado')) {
+                                            color = Colors
+                                                .red; // Vermelho para cancelado
+                                          } else if (status
+                                                  .contains('conclu') ||
+                                              status.contains('concluido') ||
+                                              status.contains('finalizado')) {
+                                            color = Colors
+                                                .blue; // Azul para concluído
+                                          } else if (status
+                                                  .contains('aguard') ||
+                                              status.contains('pend') ||
+                                              status.contains('aguardando')) {
+                                            color = Colors
+                                                .orange; // Laranja para aguardando/pendente
+                                          } else {
+                                            color = Colors
+                                                .grey; // Cinza para status não identificado
+                                          }
+                                          return _ReservationTile(
+                                            name: r['name'] ?? '—',
+                                            time: r['time'] ?? '—',
+                                            data: r['data'] ?? '—',
+                                            status: r['status'] ?? '—',
+                                            statusColor: color,
+                                          );
+                                        }).toList(),
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -1144,6 +1887,657 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                     ),
+
+                  // Seção de Cadastro de Acesso
+                  if (_selectedSection == 'cadastro-acesso' && _isAdmin)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header da seção
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Cadastro de Acesso',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Criar novos usuários do sistema',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Image.asset(
+                                  'assets/images/Logo.png',
+                                  height: 40,
+                                  fit: BoxFit.contain,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Formulário de cadastro
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1B1E21),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.all(24),
+                                child: Form(
+                                  key: _cadastroAcessoFormKey,
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Novo Usuário',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+
+                                        // Nome
+                                        Text(
+                                          'Nome Completo',
+                                          style: GoogleFonts.poppins(
+                                              color: Colors.white70),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _cadastroNomeController,
+                                          keyboardType: TextInputType.name,
+                                          style: const TextStyle(
+                                              color: Colors.white),
+                                          decoration: InputDecoration(
+                                            hintText: 'João da Silva',
+                                            hintStyle: TextStyle(
+                                                color: Colors.grey[400]),
+                                            filled: true,
+                                            fillColor:
+                                                Colors.black.withOpacity(0.25),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 16,
+                                            ),
+                                          ),
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.isEmpty) {
+                                              return 'Por favor, insira o nome completo';
+                                            }
+                                            if (value.length < 2) {
+                                              return 'O nome deve ter pelo menos 2 caracteres';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Email
+                                        Text(
+                                          'Email',
+                                          style: GoogleFonts.poppins(
+                                              color: Colors.white70),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _cadastroEmailController,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          style: const TextStyle(
+                                              color: Colors.white),
+                                          decoration: InputDecoration(
+                                            hintText: 'exemplo@exemplo.com',
+                                            hintStyle: TextStyle(
+                                                color: Colors.grey[400]),
+                                            filled: true,
+                                            fillColor:
+                                                Colors.black.withOpacity(0.25),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 16,
+                                            ),
+                                          ),
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.isEmpty) {
+                                              return 'Por favor, insira o email';
+                                            }
+                                            final emailRegex = RegExp(
+                                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                                            if (!emailRegex.hasMatch(value)) {
+                                              return 'Por favor, insira um email válido';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Senha
+                                        Text(
+                                          'Senha',
+                                          style: GoogleFonts.poppins(
+                                              color: Colors.white70),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _cadastroSenhaController,
+                                          obscureText: !_cadastroSenhaVisivel,
+                                          style: const TextStyle(
+                                              color: Colors.white),
+                                          decoration: InputDecoration(
+                                            hintText: 'Senha123',
+                                            hintStyle: TextStyle(
+                                                color: Colors.grey[400]),
+                                            filled: true,
+                                            fillColor:
+                                                Colors.black.withOpacity(0.25),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 16,
+                                            ),
+                                            suffixIcon: IconButton(
+                                              icon: Icon(
+                                                _cadastroSenhaVisivel
+                                                    ? Icons.visibility_off
+                                                    : Icons.visibility,
+                                                color: Colors.grey[400],
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  _cadastroSenhaVisivel =
+                                                      !_cadastroSenhaVisivel;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.isEmpty) {
+                                              return 'Por favor, insira uma senha';
+                                            }
+                                            if (value.length < 6) {
+                                              return 'A senha deve ter pelo menos 6 caracteres';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Confirmar Senha
+                                        Text(
+                                          'Confirmar Senha',
+                                          style: GoogleFonts.poppins(
+                                              color: Colors.white70),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextFormField(
+                                          controller:
+                                              _cadastroConfirmarSenhaController,
+                                          obscureText:
+                                              !_cadastroConfirmarSenhaVisivel,
+                                          style: const TextStyle(
+                                              color: Colors.white),
+                                          decoration: InputDecoration(
+                                            hintText: 'Confirme a senha',
+                                            hintStyle: TextStyle(
+                                                color: Colors.grey[400]),
+                                            filled: true,
+                                            fillColor:
+                                                Colors.black.withOpacity(0.25),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 16,
+                                            ),
+                                            suffixIcon: IconButton(
+                                              icon: Icon(
+                                                _cadastroConfirmarSenhaVisivel
+                                                    ? Icons.visibility_off
+                                                    : Icons.visibility,
+                                                color: Colors.grey[400],
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  _cadastroConfirmarSenhaVisivel =
+                                                      !_cadastroConfirmarSenhaVisivel;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.isEmpty) {
+                                              return 'Por favor, confirme a senha';
+                                            }
+                                            if (value !=
+                                                _cadastroSenhaController.text) {
+                                              return 'As senhas não coincidem';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Role
+                                        Text(
+                                          'Tipo de Usuário',
+                                          style: GoogleFonts.poppins(
+                                              color: Colors.white70),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.black.withOpacity(0.25),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child:
+                                              DropdownButtonFormField<String>(
+                                            value: _cadastroRoleSelecionada,
+                                            dropdownColor:
+                                                const Color(0xFF2A2D30),
+                                            style: const TextStyle(
+                                                color: Colors.white),
+                                            decoration: const InputDecoration(
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.all(
+                                                    Radius.circular(8)),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                              contentPadding:
+                                                  EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 16,
+                                              ),
+                                            ),
+                                            items:
+                                                _rolesDisponiveis.map((role) {
+                                              return DropdownMenuItem<String>(
+                                                value: role['value'],
+                                                child: Text(
+                                                  role['label']!,
+                                                  style: GoogleFonts.poppins(
+                                                      color: Colors.white),
+                                                ),
+                                              );
+                                            }).toList(),
+                                            onChanged: (String? newValue) {
+                                              if (newValue != null) {
+                                                setState(() {
+                                                  _cadastroRoleSelecionada =
+                                                      newValue;
+                                                });
+                                              }
+                                            },
+                                            validator: (value) {
+                                              if (value == null ||
+                                                  value.isEmpty) {
+                                                return 'Por favor, selecione um tipo de usuário';
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(height: 32),
+
+                                        // Botão Cadastrar
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 50,
+                                          child: ElevatedButton(
+                                            onPressed: _cadastroIsSubmitting
+                                                ? null
+                                                : _salvarCadastroAcesso,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.green,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              elevation: 0,
+                                            ),
+                                            child: _cadastroIsSubmitting
+                                                ? const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      valueColor:
+                                                          AlwaysStoppedAnimation<
+                                                              Color>(
+                                                        Colors.white,
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Text(
+                                                    'Cadastrar Usuário',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Seção de Agendamentos
+                  if (_selectedSection == 'agendamentos')
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header da seção
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Agendamentos',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Gerencie as reservas das quadras',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Image.asset(
+                                  'assets/images/Logo.png',
+                                  height: 40,
+                                  fit: BoxFit.contain,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Barra de navegação de data
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1B1E21),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_month,
+                                    color: Colors.white70,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _dataController,
+                                      readOnly: true,
+                                      style:
+                                          const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        hintText: 'Selecionar data',
+                                        hintStyle:
+                                            TextStyle(color: Colors.grey[400]),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        filled: true,
+                                        fillColor: const Color(0xFF2A2D30),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 12),
+                                      ),
+                                      onTap: () async {
+                                        final selectedDate =
+                                            await showDatePicker(
+                                          context: context,
+                                          initialDate: _dataSelecionada,
+                                          firstDate: DateTime.now().subtract(
+                                              const Duration(days: 30)),
+                                          lastDate: DateTime.now()
+                                              .add(const Duration(days: 365)),
+                                          builder: (context, child) {
+                                            return Theme(
+                                              data: Theme.of(context).copyWith(
+                                                colorScheme:
+                                                    const ColorScheme.dark(
+                                                  primary: Colors.green,
+                                                  onPrimary: Colors.white,
+                                                  surface: Color(0xFF1B1E21),
+                                                  onSurface: Colors.white,
+                                                ),
+                                              ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+                                        if (selectedDate != null) {
+                                          setState(() {
+                                            _dataSelecionada = selectedDate;
+                                            _atualizarDataController();
+                                          });
+                                          _carregarDadosAgendamentos();
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  TextButton(
+                                    onPressed: _irParaDataAnterior,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                    ),
+                                    child: Text(
+                                      'Anterior',
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed: _irParaHoje,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                    ),
+                                    child: Text(
+                                      'Hoje',
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed: _irParaProximaData,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                    ),
+                                    child: Text(
+                                      'Próximo',
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      _mostrarFuncionalidadeEmDesenvolvimento();
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: Text(
+                                      'Nova Reserva',
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Timeline das Quadras
+                            Text(
+                              'Timeline das Quadras',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Legenda
+                            Row(
+                              children: [
+                                _LegendaItem(
+                                  color: Colors.green,
+                                  label: 'Confirmado',
+                                ),
+                                const SizedBox(width: 24),
+                                _LegendaItem(
+                                  color: Colors.blue,
+                                  label: 'Pré-reserva',
+                                ),
+                                const SizedBox(width: 24),
+                                _LegendaItem(
+                                  color: Colors.black,
+                                  label: 'Cliente Fixo',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Grid de agendamentos
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1B1E21),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.all(16),
+                                child: _isLoadingAgendamentos
+                                    ? const Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            CircularProgressIndicator(
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                      Colors.green),
+                                            ),
+                                            SizedBox(height: 16),
+                                            Text(
+                                              'Carregando agendamentos...',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : _AgendamentosGrid(
+                                        quadras: _getQuadras(),
+                                        horarios: _getHorarios(),
+                                        getCorStatus: _getCorStatus,
+                                      ),
+                              ),
+                            ),
+
+                            // Texto informativo
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Horários bloqueados indicam clientes fixos (mensalistas). Estes horários são permanentemente reservados e não podem ser alterados sem autorização administrativa.',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1326,12 +2720,14 @@ class _Panel extends StatelessWidget {
 class _ReservationTile extends StatelessWidget {
   final String name;
   final String time;
+  final String data;
   final String status;
   final Color statusColor;
   const _ReservationTile({
     super.key,
     required this.name,
     required this.time,
+    required this.data,
     required this.status,
     required this.statusColor,
   });
@@ -1357,6 +2753,10 @@ class _ReservationTile extends StatelessWidget {
                 Text(time,
                     style: GoogleFonts.poppins(
                         color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 2),
+                Text('Data: $data',
+                    style: GoogleFonts.poppins(
+                        color: Colors.white60, fontSize: 11)),
               ],
             ),
           ),
@@ -1732,6 +3132,203 @@ class _ClienteModal extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LegendaItem extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendaItem({
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            color: Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AgendamentosGrid extends StatelessWidget {
+  final List<Map<String, dynamic>> quadras;
+  final List<String> horarios;
+  final Color Function(String) getCorStatus;
+
+  const _AgendamentosGrid({
+    required this.quadras,
+    required this.horarios,
+    required this.getCorStatus,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Cabeçalho com horários
+        Row(
+          children: [
+            SizedBox(
+              width: 120,
+              child: Text(
+                'Quadra',
+                style: GoogleFonts.poppins(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: horarios.map((hora) {
+                  return Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border:
+                            Border.all(color: Colors.green.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        hora,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          color: Colors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Linhas das quadras
+        Expanded(
+          child: ListView.builder(
+            itemCount: quadras.length,
+            itemBuilder: (context, index) {
+              final quadra = quadras[index];
+              final nomeQuadra = quadra['nome'] as String;
+              final horariosQuadra =
+                  quadra['horarios'] as List<Map<String, dynamic>>;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    // Nome da quadra
+                    SizedBox(
+                      width: 120,
+                      child: Text(
+                        nomeQuadra,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    // Horários da quadra
+                    Expanded(
+                      child: Row(
+                        children: horarios.map((hora) {
+                          Map<String, dynamic> horarioQuadra;
+                          try {
+                            horarioQuadra = horariosQuadra.firstWhere(
+                              (h) => h['hora'] == hora,
+                            ) as Map<String, dynamic>;
+                          } catch (e) {
+                            // Se não encontrar, usar valores padrão
+                            horarioQuadra = {
+                              'hora': hora,
+                              'status': 'disponivel',
+                              'texto': 'Disponível',
+                            };
+                          }
+
+                          final status = horarioQuadra['status'] as String;
+                          final texto = horarioQuadra['texto'] as String;
+                          final cor = getCorStatus(status);
+
+                          return Expanded(
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              height: 44,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  // Aqui pode ser adicionada a lógica para abrir uma modal de reserva
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text('$texto - $hora - $nomeQuadra'),
+                                      backgroundColor: Colors.blue,
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: cor,
+                                  foregroundColor: status == 'disponivel'
+                                      ? Colors.white
+                                      : Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 4),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  texto,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

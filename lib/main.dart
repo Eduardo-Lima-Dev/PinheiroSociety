@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
 import 'screens/dashboard_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const PinheiroSocietyApp());
 }
 
@@ -50,7 +50,6 @@ class PinheiroSocietyApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
         '/dashboard': (context) => const DashboardScreen(),
       },
     );

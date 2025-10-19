@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../services/user_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,6 +42,12 @@ class _LoginScreenState extends State<LoginScreen> {
         });
 
         if (result['success']) {
+          // Salvar dados do usuário
+          final userData = result['data'];
+          if (userData != null) {
+            await UserStorage.saveUserData(userData);
+          }
+
           // Login bem-sucedido - navegar para o dashboard
           if (mounted) {
             Navigator.of(context).pushReplacementNamed('/dashboard');
@@ -278,30 +285,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Link para criar conta
-                          Text(
-                            'Não tem uma conta?',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pushNamed('/register');
-                            },
-                            child: Text(
-                              'Criar conta',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.green,
-                                fontWeight: FontWeight.w600,
-                              ),
                             ),
                           ),
                         ],
