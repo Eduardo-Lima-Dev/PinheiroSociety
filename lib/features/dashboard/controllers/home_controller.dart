@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../services/api_service.dart';
+import '../../../services/repositories/repositories.dart';
 import '../models/dashboard_api_response.dart';
 import '../models/dashboard_summary.dart';
 import '../models/reserva.dart';
@@ -27,9 +27,9 @@ class HomeController extends ChangeNotifier {
     clearError();
 
     try {
-      final dashboard = await ApiService.getDashboardSummary();
-      final clientesResp = await ApiService.getClientes();
-      final mesasResp = await ApiService.getMesasAbertas();
+      final dashboard = await DashboardRepository.getDashboardSummary();
+      final clientesResp = await ClienteRepository.getClientes();
+      final mesasResp = await MesaRepository.getMesasAbertas();
 
       print('DEBUG: Dashboard response: $dashboard');
 

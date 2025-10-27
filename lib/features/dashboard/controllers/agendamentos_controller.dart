@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../services/api_service.dart';
+import '../../../services/repositories/repositories.dart';
 
 class AgendamentosController extends ChangeNotifier {
   DateTime dataSelecionada = DateTime.now();
@@ -36,13 +36,13 @@ class AgendamentosController extends ChangeNotifier {
 
     try {
       // Carregar quadras
-      final quadrasResp = await ApiService.getQuadras();
+      final quadrasResp = await QuadraRepository.getQuadras();
       if (quadrasResp['success'] == true) {
         quadras = List<Map<String, dynamic>>.from(quadrasResp['data'] ?? []);
       }
 
       // Carregar reservas para a data selecionada
-      final reservasResp = await ApiService.getReservas();
+      final reservasResp = await QuadraRepository.getReservas();
       if (reservasResp['success'] == true) {
         final todasReservas = List<Map<String, dynamic>>.from(reservasResp['data'] ?? []);
 
@@ -59,7 +59,7 @@ class AgendamentosController extends ChangeNotifier {
         final quadraId = quadra['id'];
         if (quadraId != null) {
           final dataFormatada = _formatarDataParaAPI(dataSelecionada);
-          final disponibilidadeResp = await ApiService.getDisponibilidadeQuadra(
+          final disponibilidadeResp = await QuadraRepository.getDisponibilidadeQuadra(
             quadraId: int.tryParse(quadraId.toString()) ?? 0,
             data: dataFormatada,
           );

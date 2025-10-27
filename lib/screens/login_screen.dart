@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
+import '../services/repositories/repositories.dart';
 import '../services/user_storage.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       try {
         // Fazer login via API
-        final result = await ApiService.login(
+        final result = await AuthRepository.login(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );

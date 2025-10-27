@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'dart:async';
-import '../../../services/api_service.dart';
+import '../../../services/repositories/repositories.dart';
 import '../models/cliente.dart';
 
 class ClientesController extends ChangeNotifier {
@@ -64,7 +64,7 @@ class ClientesController extends ChangeNotifier {
     clearError();
 
     try {
-      final response = await ApiService.getClientes();
+      final response = await ClienteRepository.getClientes();
       if (response['success'] == true) {
         final data = response['data'];
         if (data is List) {
@@ -99,7 +99,7 @@ class ClientesController extends ChangeNotifier {
 
       Map<String, dynamic> response;
       if (isEditing && clienteEditando != null) {
-        response = await ApiService.updateCliente(
+        response = await ClienteRepository.updateCliente(
           id: clienteEditando!.id,
           nomeCompleto: clienteData['nomeCompleto'] ?? '',
           cpf: clienteData['cpf'] ?? '',
@@ -107,7 +107,7 @@ class ClientesController extends ChangeNotifier {
           telefone: clienteData['telefone'] ?? '',
         );
       } else {
-        response = await ApiService.createCliente(
+        response = await ClienteRepository.createCliente(
           nomeCompleto: clienteData['nomeCompleto'] ?? '',
           cpf: clienteData['cpf'] ?? '',
           email: clienteData['email'] ?? '',
@@ -130,7 +130,7 @@ class ClientesController extends ChangeNotifier {
 
   Future<void> deletarCliente(Cliente cliente) async {
     try {
-      final response = await ApiService.deleteCliente(cliente.id);
+      final response = await ClienteRepository.deleteCliente(cliente.id);
       if (response['success'] == true) {
         await carregarClientes();
       } else {

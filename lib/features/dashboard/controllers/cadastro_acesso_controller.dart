@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../services/api_service.dart';
+import '../../../services/repositories/repositories.dart';
 
 class CadastroAcessoController extends ChangeNotifier {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -41,7 +41,7 @@ class CadastroAcessoController extends ChangeNotifier {
     clearError();
 
     try {
-      final result = await ApiService.register(
+      final result = await AuthRepository.register(
         name: nomeController.text.trim(),
         email: emailController.text.trim(),
         password: senhaController.text,
