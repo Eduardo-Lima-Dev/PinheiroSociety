@@ -23,10 +23,14 @@ class HomeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: UserStorage.isAdmin(),
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        UserStorage.isAdmin(),
+        UserStorage.getUserName(),
+      ]),
       builder: (context, snapshot) {
-        final isAdmin = snapshot.data ?? false;
+        final isAdmin = snapshot.data?[0] as bool? ?? false;
+        final userName = snapshot.data?[1] as String? ?? 'Usuário';
         
         return Consumer<HomeController>(
           builder: (context, controller, child) {
@@ -38,7 +42,7 @@ class HomeSection extends StatelessWidget {
                   child: Row(
                     children: [
                       Text(
-                        isAdmin ? 'Bem-vindo ao Pinheiro Society!' : 'Bem-vindo(a), Funcionário!',
+                        isAdmin ? 'Bem-vindo ao Pinheiro Society!' : 'Bem-vindo(a), $userName!',
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontSize: 24,
