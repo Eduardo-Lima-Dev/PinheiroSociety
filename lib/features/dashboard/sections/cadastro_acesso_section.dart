@@ -196,34 +196,38 @@ class CadastroAcessoSection extends StatelessWidget {
                       style: GoogleFonts.poppins(color: Colors.white70),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: controller.roleSelecionada,
-                          isExpanded: true,
-                          style: const TextStyle(color: Colors.white),
-                          dropdownColor: const Color(0xFF1B1E21),
-                          items: controller.rolesDisponiveis.map((role) {
-                            return DropdownMenuItem<String>(
-                              value: role['value'],
-                              child: Text(
-                                role['label']!,
-                                style: GoogleFonts.poppins(color: Colors.white),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              controller.setRole(value);
-                            }
-                          },
-                        ),
-                      ),
+                    Consumer<CadastroAcessoController>(
+                      builder: (context, controller, child) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: controller.roleSelecionada,
+                              isExpanded: true,
+                              style: const TextStyle(color: Colors.white),
+                              dropdownColor: const Color(0xFF1B1E21),
+                              items: controller.rolesDisponiveis.map((role) {
+                                return DropdownMenuItem<String>(
+                                  value: role['value'],
+                                  child: Text(
+                                    role['label']!,
+                                    style: GoogleFonts.poppins(color: Colors.white),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  controller.setRole(value);
+                                }
+                              },
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
 

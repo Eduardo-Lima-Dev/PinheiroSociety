@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  //static const String baseUrl = 'https://pinheiro-society-api.vercel.app';
-  static const String baseUrl = 'http://localhost:3000';
+  static const String baseUrl = 'https://pinheiro-society-api.vercel.app';
+  // static const String baseUrl = 'http://localhost:3000';
 
   // Headers padrão para as requisições
   static Map<String, String> get _headers => {
