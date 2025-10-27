@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
-import '../../../services/dashboard_api_response.dart';
+import '../models/dashboard_api_response.dart';
 import '../models/dashboard_summary.dart';
 import '../models/reserva.dart';
 import '../models/estoque_alerta.dart';
+import '../models/mesa_aberta.dart';
 
 class HomeController extends ChangeNotifier {
   String reservasHoje = '-';
@@ -16,6 +17,8 @@ class HomeController extends ChangeNotifier {
   String horarioPico = '-';
   List<Reserva> proximasReservas = [];
   List<EstoqueAlerta> alertasEstoque = [];
+  List<MesaAberta> mesasAbertas = [];
+  int alertasEstoqueBaixo = 0;
   bool isLoading = true;
   String? error;
 
@@ -26,6 +29,7 @@ class HomeController extends ChangeNotifier {
     try {
       final dashboard = await ApiService.getDashboardSummary();
       final clientesResp = await ApiService.getClientes();
+      final mesasResp = await ApiService.getMesasAbertas();
 
       print('DEBUG: Dashboard response: $dashboard');
 
@@ -90,7 +94,36 @@ class HomeController extends ChangeNotifier {
         }).toList();
 
         // Alertas de estoque
-        alertasEstoque = [];
+        alertasEstoque = (data.alertas.produtos as List<dynamic>).map((p) {
+          // A API retorna: name, quantidade, minQuantidade
+          final quantidade = p['quantidade'] ?? p['quantidadeAtual'] ?? 0;
+          final minQuantidade = p['minQuantidade'] ?? p['quantidadeMinima'] ?? 0;
+          final qtdAtual = quantidade is int ? quantidade : int.tryParse(quantidade.toString()) ?? 0;
+          final qtdMin = minQuantidade is int ? minQuantidade : int.tryParse(minQuantidade.toString()) ?? 0;
+          
+          return EstoqueAlerta(
+            id: p['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            produto: p['name']?.toString() ?? p['nome']?.toString() ?? p['produto']?.toString() ?? 'Produto',
+            quantidadeAtual: qtdAtual,
+            quantidadeMinima: qtdMin,
+            status: qtdAtual <= qtdMin ? 'critico' : 'baixo',
+            observacao: p['observacao']?.toString(),
+          );
+        }).toList();
+        alertasEstoqueBaixo = data.alertas.estoqueBaixo;
+        print('DEBUG: Alertas de estoque: ${alertasEstoque.length}, Baixo: $alertasEstoqueBaixo');
+        print('DEBUG: Produtos: ${data.alertas.produtos}');
+
+        // Mesas abertas
+        if (mesasResp['success'] == true) {
+          final mesasData = mesasResp['data'];
+          if (mesasData is List) {
+            mesasAbertas = mesasData
+                .map((m) => MesaAberta.fromJson(m as Map<String, dynamic>))
+                .toList();
+            print('DEBUG: Mesas abertas: ${mesasAbertas.length}');
+          }
+        }
         
         print('DEBUG: Todos os dados carregados com sucesso!');
       } else {

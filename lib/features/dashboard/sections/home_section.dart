@@ -138,7 +138,7 @@ class HomeSection extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // Painéis de reservas e alertas
+                  // Painéis de Próximas Reservas e Mesas Abertas
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -174,38 +174,52 @@ class HomeSection extends StatelessWidget {
                                     ),
                             ),
                           ),
-
+                          
                           const SizedBox(width: 16),
-
-                          // Painel de Alertas de Estoque
+                          
+                          // Painel de Mesas Abertas
                           Expanded(
                             child: Panel(
-                              title: 'Alertas de Estoque',
-                              child: controller.alertasEstoque.isEmpty
-                                  ? Center(
-                                      child: Text(
-                                        'Nenhum alerta de estoque',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white70,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      padding: const EdgeInsets.all(16),
-                                      itemCount: controller.alertasEstoque.length,
-                                      itemBuilder: (context, index) {
-                                        final alerta = controller.alertasEstoque[index];
-                                        return StockAlertTile(
-                                          product: alerta.produto,
-                                          current: alerta.quantidadeAtual,
-                                          min: alerta.quantidadeMinima,
-                                        );
-                                      },
-                                    ),
+                              title: 'Mesas Abertas',
+                              child: _buildMesasAbertas(),
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Painel de Alertas de Estoque no final
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Container(
+                      height: 200,
+                      child: Panel(
+                        title: 'Alertas de Estoque',
+                        child: controller.alertasEstoque.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'Nenhum alerta de estoque',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: controller.alertasEstoque.length,
+                                itemBuilder: (context, index) {
+                                  final alerta = controller.alertasEstoque[index];
+                                  return StockAlertTile(
+                                    product: alerta.produto,
+                                    current: alerta.quantidadeAtual,
+                                    min: alerta.quantidadeMinima,
+                                  );
+                                },
+                              ),
                       ),
                     ),
                   ),
@@ -313,10 +327,11 @@ class HomeSection extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // Painel de Alertas de Estoque
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  // Painel de Alertas de Estoque no final
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Container(
+                      height: 200,
                       child: Panel(
                         title: 'Alertas de Estoque',
                         child: controller.alertasEstoque.isEmpty
@@ -364,5 +379,103 @@ class HomeSection extends StatelessWidget {
       default:
         return Colors.grey;
     }
+  }
+
+  Widget _buildMesasAbertas() {
+    return Consumer<HomeController>(
+      builder: (context, controller, child) {
+        if (controller.mesasAbertas.isEmpty) {
+          return Center(
+            child: Text(
+              'Nenhuma mesa aberta',
+              style: GoogleFonts.poppins(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: controller.mesasAbertas.length,
+          itemBuilder: (context, index) {
+            final mesa = controller.mesasAbertas[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C2F33),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        mesa.nome,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4CAF50),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Ocupada',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    mesa.cliente ?? 'Cliente não informado',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.attach_money,
+                        color: Color(0xFF4CAF50),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'R\$ ${mesa.valor.toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF4CAF50),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }

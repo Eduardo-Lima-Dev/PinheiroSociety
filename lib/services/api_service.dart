@@ -337,4 +337,24 @@ class ApiService {
       };
     }
   }
+
+  /// Busca mesas ativas/abertas
+  static Future<Map<String, dynamic>> getMesasAbertas() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/mesas?ativa=true'),
+        headers: _headers,
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data};
+      }
+      return {
+        'success': false,
+        'error': data['message'] ?? 'Erro ao carregar mesas abertas'
+      };
+    } catch (e) {
+      return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
+    }
+  }
 }
