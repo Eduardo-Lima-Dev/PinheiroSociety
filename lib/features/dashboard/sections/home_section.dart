@@ -9,9 +9,9 @@ import '../widgets/panel.dart';
 import '../widgets/reservation_tile.dart';
 import '../widgets/stock_alert_tile.dart';
 import '../widgets/action_card.dart';
-import '../widgets/mesa_status_card.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/sales_card.dart';
+import '../widgets/mesa_status_metric_card.dart';
 
 class HomeSection extends StatelessWidget {
   final HomeController controller;
@@ -86,11 +86,9 @@ class HomeSection extends StatelessWidget {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: MetricCard(
-                            icon: Icons.table_chart_outlined,
-                            title: 'Status das Mesas',
-                            value: '3',
-                            subtitle: 'Mesas Ocupadas     Total de Mesas\n3                               6',
+                          child: MesaStatusMetricCard(
+                            mesasOcupadas: 3,
+                            totalMesas: 6,
                           ),
                         ),
                       ],
@@ -247,7 +245,7 @@ class HomeSection extends StatelessWidget {
                             icon: Icons.table_chart_outlined,
                             title: 'Status das Mesas',
                             value: '3',
-                            subtitle: 'Mesas Ocupadas     Total de Mesas\n3                               6',
+                            subtitle: 'Mesas Ocupadas                Total de Mesas\n                                             6',
                           ),
                         ),
                       ],
