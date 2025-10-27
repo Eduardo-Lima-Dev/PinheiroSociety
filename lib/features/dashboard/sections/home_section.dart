@@ -87,8 +87,8 @@ class HomeSection extends StatelessWidget {
                         const SizedBox(width: 16),
                         Expanded(
                           child: MesaStatusMetricCard(
-                            mesasOcupadas: 3,
-                            totalMesas: 6,
+                            mesasOcupadas: controller.mesasOcupadas,
+                            totalMesas: controller.totalMesas,
                           ),
                         ),
                       ],
@@ -128,8 +128,8 @@ class HomeSection extends StatelessWidget {
                           child: MetricCard(
                             icon: Icons.trending_up,
                             title: 'Horários ocupados',
-                            value: '78%',
-                            subtitle: 'Horário de pico: 18h-21h',
+                            value: '${controller.percentualOcupacao}%',
+                            subtitle: 'Horário de pico: ${controller.horarioPico}',
                           ),
                         ),
                       ],
@@ -241,11 +241,9 @@ class HomeSection extends StatelessWidget {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: MetricCard(
-                            icon: Icons.table_chart_outlined,
-                            title: 'Status das Mesas',
-                            value: '3',
-                            subtitle: 'Mesas Ocupadas                Total de Mesas\n                                             6',
+                          child: MesaStatusMetricCard(
+                            mesasOcupadas: controller.mesasOcupadas,
+                            totalMesas: controller.totalMesas,
                           ),
                         ),
                       ],

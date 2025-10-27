@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
+import '../../../services/dashboard_api_response.dart';
 import '../models/dashboard_summary.dart';
 import '../models/reserva.dart';
 import '../models/estoque_alerta.dart';
@@ -9,6 +10,10 @@ class HomeController extends ChangeNotifier {
   String totalClientes = '-';
   String receitaHoje = '-';
   String ocupacao = '-';
+  int mesasOcupadas = 0;
+  int totalMesas = 0;
+  int percentualOcupacao = 0;
+  String horarioPico = '-';
   List<Reserva> proximasReservas = [];
   List<EstoqueAlerta> alertasEstoque = [];
   bool isLoading = true;
@@ -20,20 +25,18 @@ class HomeController extends ChangeNotifier {
 
     try {
       final dashboard = await ApiService.getDashboardSummary();
-      final reservasResp = await ApiService.getReservas();
       final clientesResp = await ApiService.getClientes();
 
+      print('DEBUG: Dashboard response: $dashboard');
+
       if (dashboard['success'] == true) {
-        final data = dashboard['data'] as Map<String, dynamic>;
-        final mes = (data['mes'] ?? {}) as Map<String, dynamic>;
-        final hoje = (data['hoje'] ?? {}) as Map<String, dynamic>;
-        final alertas = (data['alertas'] ?? {}) as Map<String, dynamic>;
+        final data = DashboardApiResponse.fromJson(dashboard['data']);
+        print('DEBUG: Data parsed successfully');
 
-        // Reservas de hoje = quantidade em hoje.reservas
-        final reservasHojeList = (hoje['reservas'] ?? []) as List<dynamic>;
-        reservasHoje = reservasHojeList.length.toString();
+        // Dados do mês
+        reservasHoje = data.hoje.reservas.length.toString();
 
-        // Total de clientes: preferir /relatorios/clientes
+        // Total de clientes da API de clientes
         if (clientesResp['success'] == true) {
           final d = clientesResp['data'];
           if (d is List) {
@@ -49,34 +52,57 @@ class HomeController extends ChangeNotifier {
             }
           }
         } else {
-          totalClientes = mes['totalClientes']?.toString() ?? '-';
+          totalClientes = '-';
         }
 
-        // Receita de hoje
-        receitaHoje = hoje['receita']?.toString() ?? '-';
+        // Receita de hoje (converter de cents para reais)
+        final receitaCents = data.hoje.receitaHoje.totalCents;
+        receitaHoje = (receitaCents / 100).toStringAsFixed(2);
+        print('DEBUG: receitaHoje = $receitaHoje');
 
-        // Ocupação do mês
-        ocupacao = mes['ocupacao']?.toString() ?? '-';
+        // Percentual de ocupação de horários
+        ocupacao = data.horariosOcupados.percentualOcupacao.toString();
 
-        // Próximas reservas (próximas 5)
-        final proximasReservasData = (hoje['proximasReservas'] ?? []) as List<dynamic>;
-        proximasReservas = proximasReservasData
-            .take(5)
-            .map((item) => Reserva.fromJson(item as Map<String, dynamic>))
-            .toList();
+        // Status das mesas
+        mesasOcupadas = data.statusQuadras.mesasOcupadas;
+        totalMesas = data.statusQuadras.totalMesas;
+        print('DEBUG: mesasOcupadas = $mesasOcupadas, totalMesas = $totalMesas');
+
+        // Percentual de ocupação
+        percentualOcupacao = data.horariosOcupados.percentualOcupacao;
+        print('DEBUG: percentualOcupacao = $percentualOcupacao');
+
+        // Horário de pico
+        horarioPico = '${data.horariosOcupados.horarioPico.inicio}h-${data.horariosOcupados.horarioPico.fim}h';
+        print('DEBUG: horarioPico = $horarioPico');
+
+        // Próximas reservas de hoje
+        proximasReservas = data.hoje.reservas.map((r) {
+          return Reserva(
+            id: r.id.toString(),
+            clienteNome: r.cliente,
+            quadraNome: r.quadra,
+            data: DateTime.now().toIso8601String().split('T')[0],
+            horario: '${r.hora}:00',
+            status: 'confirmado',
+            valor: r.precoCents / 100,
+          );
+        }).toList();
 
         // Alertas de estoque
-        final alertasData = (alertas['estoque'] ?? []) as List<dynamic>;
-        alertasEstoque = alertasData
-            .map((item) => EstoqueAlerta.fromJson(item as Map<String, dynamic>))
-            .toList();
+        alertasEstoque = [];
+        
+        print('DEBUG: Todos os dados carregados com sucesso!');
       } else {
+        print('DEBUG: Erro no dashboard: ${dashboard['error']}');
         setError(dashboard['error'] ?? 'Erro ao carregar dados do dashboard');
       }
     } catch (e) {
+      print('DEBUG: Exception: $e');
       setError('Erro de conexão: ${e.toString()}');
     } finally {
       setLoading(false);
+      print('DEBUG: Loading finished');
     }
   }
 
