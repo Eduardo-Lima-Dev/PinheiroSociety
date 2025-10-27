@@ -107,16 +107,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             const SizedBox(height: 16),
                                             Text(
                           'Pinheiro Society',
-                                      style: GoogleFonts.poppins(
+                                              style: GoogleFonts.poppins(
                                         color: Colors.white,
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                        const SizedBox(height: 8),
-                                    Text(
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
                           'Bem-vindo, $_userName',
-                                      style: GoogleFonts.poppins(
+                                              style: GoogleFonts.poppins(
                                         color: Colors.white70,
                                         fontSize: 14,
                                       ),
@@ -126,11 +126,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
 
                   // Menu items
-                            Expanded(
-                    child: Padding(
+                    Expanded(
+                      child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Column(
-                                      children: [
+                        child: Column(
+                          children: [
                           // Alerta de estoque baixo na sidebar
                           Consumer<HomeController>(
                             builder: (context, homeController, child) {
@@ -138,35 +138,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
                                   padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
+                              decoration: BoxDecoration(
                                     color: const Color(0xFFFFA726).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: const Color(0xFFFFA726),
                                       width: 1,
                                     ),
                                   ),
                                   child: Row(
-                                    children: [
+                                  children: [
                                       const Icon(
                                         Icons.warning_amber_rounded,
                                         color: Color(0xFFFFA726),
                                         size: 20,
                                       ),
                                       const SizedBox(width: 8),
-                                      Expanded(
+                                    Expanded(
                                         child: Text(
                                           '${homeController.alertasEstoqueBaixo} ${homeController.alertasEstoqueBaixo == 1 ? 'item com' : 'itens com'}\nestoque baixo',
-                                          style: GoogleFonts.poppins(
+                                      style: GoogleFonts.poppins(
                                             color: const Color(0xFFFFA726),
                                             fontSize: 12,
                                             fontWeight: FontWeight.w500,
                                             height: 1.3,
                                           ),
-                                        ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
+                                ),
                                 );
                               }
                               return const SizedBox.shrink();

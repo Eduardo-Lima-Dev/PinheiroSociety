@@ -31,15 +31,44 @@ class MesaAberta {
     }
     clienteNome ??= json['nomeCliente']?.toString();
     
+    // Extrair valor da mesa (pode estar em comandas ou diretamente)
+    double valorMesa = 0.0;
+    
+    // Primeiro, tentar pegar das comandas
+    final comandas = json['comandas'];
+    if (comandas != null && comandas is List && comandas.isNotEmpty) {
+      // Somar o totalCents de todas as comandas e converter de cents para reais
+      int totalCents = 0;
+      for (var comanda in comandas) {
+        if (comanda is Map && comanda['totalCents'] != null) {
+          totalCents += (comanda['totalCents'] as int? ?? 0);
+        }
+      }
+      valorMesa = totalCents / 100.0; // Converter de cents para reais
+    } else {
+      // Se não tem comandas, tentar outros campos
+      valorMesa = _parseValor(json['valor'] ?? json['total'] ?? json['valorTotal'] ?? 0);
+    }
+    
+    // Extrair data de abertura (pode estar em comandas[0].openedAt ou dataAbertura)
+    DateTime? dataAbertura;
+    if (comandas != null && comandas is List && comandas.isNotEmpty) {
+      final primeiraComanda = comandas[0];
+      if (primeiraComanda is Map && primeiraComanda['openedAt'] != null) {
+        dataAbertura = DateTime.tryParse(primeiraComanda['openedAt'].toString());
+      }
+    }
+    dataAbertura ??= json['dataAbertura'] != null 
+        ? DateTime.tryParse(json['dataAbertura'].toString())
+        : null;
+    
     return MesaAberta(
       id: json['id'] ?? 0,
-      nome: json['nome']?.toString() ?? json['mesa']?.toString() ?? 'Mesa',
+      nome: 'Mesa ${json['numero']?.toString() ?? json['id']?.toString() ?? '?'}',
       cliente: clienteNome,
-      valor: _parseValor(json['valor'] ?? json['total'] ?? json['valorTotal'] ?? 0),
+      valor: valorMesa,
       ativa: json['ativa'] == true || json['status']?.toString().toLowerCase() == 'aberta',
-      dataAbertura: json['dataAbertura'] != null 
-          ? DateTime.tryParse(json['dataAbertura'].toString())
-          : null,
+      dataAbertura: dataAbertura,
     );
   }
 
