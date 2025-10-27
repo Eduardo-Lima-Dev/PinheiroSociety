@@ -10,6 +10,8 @@ import '../widgets/reservation_tile.dart';
 import '../widgets/stock_alert_tile.dart';
 import '../widgets/action_card.dart';
 import '../widgets/mesa_status_card.dart';
+import '../widgets/metric_card.dart';
+import '../widgets/sales_card.dart';
 
 class HomeSection extends StatelessWidget {
   final HomeController controller;
@@ -54,40 +56,78 @@ class HomeSection extends StatelessWidget {
                 ),
 
                 if (isAdmin) ...[
-                  // Layout ADMIN - Métricas completas
+                  // Layout ADMIN - Cards de métricas e ações
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
                       children: [
                         Expanded(
-                          child: StatCard(
+                          child: ActionCard(
+                            icon: Icons.event_note,
+                            title: 'Novo Agendamento',
+                            color: const Color(0xFF4CAF50),
+                            onTap: () {
+                              Provider.of<DashboardController>(context, listen: false)
+                                  .selectSection('agendamentos');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: MetricCard(
+                            icon: Icons.calendar_today,
                             title: 'Reservas Hoje',
                             value: controller.reservasHoje,
-                            icon: Icons.calendar_today,
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: StatCard(
-                            title: 'Total Clientes',
-                            value: controller.totalClientes,
-                            icon: Icons.people,
+                          child: MetricCard(
+                            icon: Icons.table_chart_outlined,
+                            title: 'Status das Mesas',
+                            value: '3',
+                            subtitle: 'Mesas Ocupadas     Total de Mesas\n3                               6',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Segunda linha de métricas
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SalesCard(
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Funcionalidade em desenvolvimento'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: StatCard(
+                          child: MetricCard(
+                            icon: Icons.attach_money,
                             title: 'Receita Hoje',
                             value: 'R\$ ${controller.receitaHoje}',
-                            icon: Icons.attach_money,
+                            subtitle: '+15% vs. média',
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: StatCard(
-                            title: 'Ocupação',
-                            value: '${controller.ocupacao}%',
+                          child: MetricCard(
                             icon: Icons.trending_up,
+                            title: 'Horários ocupados',
+                            value: '78%',
+                            subtitle: 'Horário de pico: 18h-21h',
                           ),
                         ),
                       ],
@@ -175,9 +215,9 @@ class HomeSection extends StatelessWidget {
                       children: [
                         Expanded(
                           child: ActionCard(
-                            icon: Icons.calendar_today,
+                            icon: Icons.event_note,
                             title: 'Novo Agendamento',
-                            color: Colors.green,
+                            color: const Color(0xFF4CAF50),
                             onTap: () {
                               Provider.of<DashboardController>(context, listen: false)
                                   .selectSection('agendamentos');
@@ -186,12 +226,8 @@ class HomeSection extends StatelessWidget {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: ActionCard(
-                            icon: Icons.shopping_cart,
-                            title: 'Venda Avulsa',
-                            color: Colors.blue,
+                          child: SalesCard(
                             onTap: () {
-                              // TODO: Implementar navegação para venda avulsa
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Funcionalidade em desenvolvimento'),
@@ -203,10 +239,11 @@ class HomeSection extends StatelessWidget {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: MesaStatusCard(
-                            mesasOcupadas: 3, // TODO: Buscar dados reais da API
-                            totalMesas: 6,    // TODO: Buscar dados reais da API
-                            horariosOcupados: '78%', // TODO: Buscar dados reais da API
+                          child: MetricCard(
+                            icon: Icons.table_chart_outlined,
+                            title: 'Status das Mesas',
+                            value: '3',
+                            subtitle: 'Mesas Ocupadas     Total de Mesas\n3                               6',
                           ),
                         ),
                       ],

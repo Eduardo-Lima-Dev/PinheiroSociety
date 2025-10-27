@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class ActionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
+class SalesCard extends StatelessWidget {
   final VoidCallback onTap;
 
-  const ActionCard({
+  const SalesCard({
     super.key,
-    required this.icon,
-    required this.title,
-    required this.color,
     required this.onTap,
   });
 
@@ -23,7 +17,7 @@ class ActionCard extends StatelessWidget {
       child: Container(
         height: 120,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: const Color(0xFF1B1E21),
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.all(16),
@@ -31,22 +25,26 @@ class ActionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Ícone
+            // Ícone do carrinho de compras
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color,
+                color: const Color(0xFF2196F3),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: Colors.white, size: 22),
+              child: const Icon(
+                Icons.shopping_cart,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
             // Título e subtítulo
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  'Venda Avulsa',
                   style: GoogleFonts.poppins(
                     color: Colors.white,
                     fontSize: 14,
@@ -55,7 +53,7 @@ class ActionCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Reservar quadra',
+                  'Registrar venda\nno balcão',
                   style: GoogleFonts.poppins(
                     color: Colors.white.withOpacity(0.6),
                     fontSize: 11,
@@ -71,3 +69,4 @@ class ActionCard extends StatelessWidget {
     );
   }
 }
+
