@@ -156,7 +156,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   SidebarItem(
                                     icon: Icons.sports_tennis,
                                     label: 'Agendamentos',
-                                    badge: '3',
+                                    badge: _homeController.reservasHoje,
                                     selected: dashboardController.selectedSection == 'agendamentos',
                                     onTap: () {
                                       dashboardController.selectSection('agendamentos');
