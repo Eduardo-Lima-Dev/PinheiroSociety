@@ -17,7 +17,7 @@ class SalesCard extends StatelessWidget {
       child: Container(
         height: 120,
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1E21),
+          color: const Color(0xFF2196F3).withOpacity(0.12),
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.all(16),
@@ -49,16 +49,26 @@ class SalesCard extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    height: 1.1,
+                    height: 1.0,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  'Registrar venda\nno balcão',
+                  'Registrar venda',
                   style: GoogleFonts.poppins(
                     color: Colors.white.withOpacity(0.6),
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
-                    height: 1.2,
+                    height: 1.0,
+                  ),
+                ),
+                Text(
+                  'no balcão',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    height: 1.0,
                   ),
                 ),
               ],
