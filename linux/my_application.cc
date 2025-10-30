@@ -48,6 +48,16 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  
+  // Configurar o ícone da janela
+  g_autoptr(GError) icon_error = nullptr;
+  g_autofree gchar* icon_path = g_build_filename(
+      fl_dart_project_get_assets_path(fl_dart_project_new()),
+      "data", "app_icon.png", nullptr);
+  if (!gtk_window_set_icon_from_file(window, icon_path, &icon_error)) {
+    g_warning("Failed to set window icon: %s", icon_error->message);
+  }
+  
   gtk_widget_show(GTK_WIDGET(window));
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
