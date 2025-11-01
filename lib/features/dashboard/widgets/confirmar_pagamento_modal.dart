@@ -85,11 +85,11 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
                 ),
                 const SizedBox(height: 12),
 
-                _buildFormaPagamentoButton('PIX'),
+                _buildFormaPagamentoButton('PIX', 'PIX'),
                 const SizedBox(height: 8),
-                _buildFormaPagamentoButton('Dinheiro'),
+                _buildFormaPagamentoButton('Dinheiro', 'CASH'),
                 const SizedBox(height: 8),
-                _buildFormaPagamentoButton('Cartão (Crédito/Débito)'),
+                _buildFormaPagamentoButton('Cartão (Crédito/Débito)', 'CARD'),
 
                 const SizedBox(height: 24),
 
@@ -246,13 +246,13 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
     );
   }
 
-  Widget _buildFormaPagamentoButton(String forma) {
-    final isSelected = formaPagamentoSelecionada == forma;
+  Widget _buildFormaPagamentoButton(String label, String codigo) {
+    final isSelected = formaPagamentoSelecionada == codigo;
     
     return InkWell(
       onTap: () {
         setState(() {
-          formaPagamentoSelecionada = forma;
+          formaPagamentoSelecionada = codigo; // Salva o código da API
         });
       },
       child: Container(
@@ -275,7 +275,7 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
             ),
             const SizedBox(width: 12),
             Text(
-              forma,
+              label, // Exibe o texto em português
               style: GoogleFonts.poppins(
                 color: isSelected ? Colors.white : Colors.white70,
                 fontSize: 14,

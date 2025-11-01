@@ -22,25 +22,30 @@ class AgendamentosSection extends StatelessWidget {
         // Header
         Padding(
           padding: const EdgeInsets.all(24),
-          child: Row(
-            children: [
-              Text(
-                'Agendamentos',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Agendamentos',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Gerencie as reservas das quadras',
-                style: GoogleFonts.poppins(
-                  color: Colors.white60,
-                  fontSize: 14,
+                const SizedBox(height: 4),
+                Text(
+                  'Gerencie as reservas das quadras',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white60,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 
@@ -291,13 +296,13 @@ class AgendamentosSection extends StatelessWidget {
   Color _getCorStatus(String status) {
     switch (status.toLowerCase()) {
       case 'disponivel':
-        return const Color(0xFF4CAF50).withOpacity(0.5); // Verde claro mais visível
+        return const Color(0xFF37474F); // Cinza azulado para disponível (não está na legenda)
       case 'confirmado':
-        return const Color(0xFF2E7D32); // Verde escuro para confirmado
+        return Colors.green; // Verde (igual à legenda)
       case 'pre_reserva':
-        return const Color(0xFF2196F3); // Azul para pré-reserva
+        return Colors.blue; // Azul (igual à legenda)
       case 'cliente_fixo':
-        return Colors.grey.shade700; // Cinza para cliente fixo
+        return Colors.grey.shade700; // Cinza escuro (igual à legenda)
       case 'ocupado':
       case 'reservado':
         return Colors.red; // Vermelho para ocupado (fallback)
