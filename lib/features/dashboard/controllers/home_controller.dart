@@ -83,15 +83,17 @@ class HomeController extends ChangeNotifier {
         // Próximas reservas de hoje
         proximasReservas = data.hoje.reservas.map((r) {
           return Reserva(
-            id: r.id.toString(),
-            clienteNome: r.cliente,
-            quadraNome: r.quadra,
+            id: r.id,
+            clienteId: 0, // Não temos o ID nesta resposta
+            quadraId: 0, // Não temos o ID nesta resposta
             data: DateTime.now().toIso8601String().split('T')[0],
-            horario: '${r.hora}:00',
-            status: 'confirmado',
-            valor: r.precoCents / 100,
+            hora: r.hora,
+            precoCents: r.precoCents,
+            status: 'ATIVA',
+            cliente: {'nomeCompleto': r.cliente},
+            quadra: {'nome': r.quadra},
           );
-        }).toList();
+        }).toList() as List<Reserva>;
 
         // Alertas de estoque
         alertasEstoque = (data.alertas.produtos as List<dynamic>).map((p) {

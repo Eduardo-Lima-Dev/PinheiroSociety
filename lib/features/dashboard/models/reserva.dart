@@ -1,63 +1,144 @@
 class Reserva {
-  final String id;
-  final String clienteNome;
-  final String quadraNome;
+  final int? id;
+  final int clienteId;
+  final int quadraId;
   final String data;
-  final String horario;
+  final int hora;
+  final int precoCents;
   final String status;
-  final double? valor;
+  final String? observacoes;
+  final bool recorrente;
+  final int? diaSemana;
+  final String? dataFimRecorrencia;
+  final int? reservaPaiId;
+  final Map<String, dynamic>? cliente;
+  final Map<String, dynamic>? quadra;
 
   Reserva({
-    required this.id,
-    required this.clienteNome,
-    required this.quadraNome,
+    this.id,
+    required this.clienteId,
+    required this.quadraId,
     required this.data,
-    required this.horario,
+    required this.hora,
+    required this.precoCents,
     required this.status,
-    this.valor,
+    this.observacoes,
+    this.recorrente = false,
+    this.diaSemana,
+    this.dataFimRecorrencia,
+    this.reservaPaiId,
+    this.cliente,
+    this.quadra,
   });
 
   factory Reserva.fromJson(Map<String, dynamic> json) {
     return Reserva(
-      id: json['id']?.toString() ?? '',
-      clienteNome: json['clienteNome']?.toString() ?? '',
-      quadraNome: json['quadraNome']?.toString() ?? '',
-      data: json['data']?.toString() ?? '',
-      horario: json['horario']?.toString() ?? '',
-      status: json['status']?.toString() ?? '',
-      valor: json['valor']?.toDouble(),
+      id: json['id'] as int?,
+      clienteId: json['clienteId'] as int,
+      quadraId: json['quadraId'] as int,
+      data: json['data'] as String,
+      hora: json['hora'] as int,
+      precoCents: json['precoCents'] as int,
+      status: json['status'] as String,
+      observacoes: json['observacoes'] as String?,
+      recorrente: json['recorrente'] as bool? ?? false,
+      diaSemana: json['diaSemana'] as int?,
+      dataFimRecorrencia: json['dataFimRecorrencia'] as String?,
+      reservaPaiId: json['reservaPaiId'] as int?,
+      cliente: json['cliente'] as Map<String, dynamic>?,
+      quadra: json['quadra'] as Map<String, dynamic>?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'clienteNome': clienteNome,
-      'quadraNome': quadraNome,
+      if (id != null) 'id': id,
+      'clienteId': clienteId,
+      'quadraId': quadraId,
       'data': data,
-      'horario': horario,
+      'hora': hora,
+      'precoCents': precoCents,
       'status': status,
-      'valor': valor,
+      if (observacoes != null) 'observacoes': observacoes,
+      'recorrente': recorrente,
+      if (diaSemana != null) 'diaSemana': diaSemana,
+      if (dataFimRecorrencia != null) 'dataFimRecorrencia': dataFimRecorrencia,
+      if (reservaPaiId != null) 'reservaPaiId': reservaPaiId,
+    };
+  }
+
+  Map<String, dynamic> toCreateJson({
+    String? payment,
+    int? percentualPago,
+  }) {
+    return {
+      'clienteId': clienteId,
+      'quadraId': quadraId,
+      'data': data,
+      'hora': hora,
+      if (payment != null) 'payment': payment,
+      if (percentualPago != null) 'percentualPago': percentualPago,
+      if (observacoes != null && observacoes!.isNotEmpty) 'observacoes': observacoes,
     };
   }
 
   Reserva copyWith({
-    String? id,
-    String? clienteNome,
-    String? quadraNome,
+    int? id,
+    int? clienteId,
+    int? quadraId,
     String? data,
-    String? horario,
+    int? hora,
+    int? precoCents,
     String? status,
-    double? valor,
+    String? observacoes,
+    bool? recorrente,
+    int? diaSemana,
+    String? dataFimRecorrencia,
+    int? reservaPaiId,
+    Map<String, dynamic>? cliente,
+    Map<String, dynamic>? quadra,
   }) {
     return Reserva(
       id: id ?? this.id,
-      clienteNome: clienteNome ?? this.clienteNome,
-      quadraNome: quadraNome ?? this.quadraNome,
+      clienteId: clienteId ?? this.clienteId,
+      quadraId: quadraId ?? this.quadraId,
       data: data ?? this.data,
-      horario: horario ?? this.horario,
+      hora: hora ?? this.hora,
+      precoCents: precoCents ?? this.precoCents,
       status: status ?? this.status,
-      valor: valor ?? this.valor,
+      observacoes: observacoes ?? this.observacoes,
+      recorrente: recorrente ?? this.recorrente,
+      diaSemana: diaSemana ?? this.diaSemana,
+      dataFimRecorrencia: dataFimRecorrencia ?? this.dataFimRecorrencia,
+      reservaPaiId: reservaPaiId ?? this.reservaPaiId,
+      cliente: cliente ?? this.cliente,
+      quadra: quadra ?? this.quadra,
     );
+  }
+
+  double get precoReais => precoCents / 100;
+  
+  String get horaFormatada => '${hora.toString().padLeft(2, '0')}:00';
+  
+  String get dataFormatada {
+    try {
+      // Remove o timestamp se existir (formato: 2025-11-03T03:00:00.000Z -> 2025-11-03)
+      final dataSemTimestamp = data.split('T')[0];
+      
+      // Faz o split da data
+      final partes = dataSemTimestamp.split('-');
+      
+      // Verifica se tem 3 partes (ano, mês, dia)
+      if (partes.length == 3) {
+        final ano = partes[0];
+        final mes = partes[1];
+        final dia = partes[2];
+        return '$dia/$mes/$ano'; // Formato: DD/MM/AAAA
+      }
+      
+      return data;
+    } catch (e) {
+      return data;
+    }
   }
 }

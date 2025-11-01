@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../controllers/detalhes_reserva_controller.dart';
+import 'detalhes_reserva_modal.dart';
 
 class AgendamentosGrid extends StatelessWidget {
   final List<Map<String, dynamic>> quadras;
@@ -111,27 +114,23 @@ class AgendamentosGrid extends StatelessWidget {
                           final status = horarioQuadra['status'] as String;
                           final texto = horarioQuadra['texto'] as String;
                           final cor = getCorStatus(status);
+                          final reservaId = horarioQuadra['reservaId'] as int?;
 
                           return Expanded(
                             child: Container(
                               margin: const EdgeInsets.symmetric(horizontal: 4),
                               height: 44,
                               child: ElevatedButton(
-                                onPressed: () {
-                                  // Aqui pode ser adicionada a lógica para abrir uma modal de reserva
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content:
-                                          Text('$texto - $hora - $nomeQuadra'),
-                                      backgroundColor: Colors.blue,
-                                    ),
-                                  );
-                                },
+                                onPressed: reservaId != null
+                                    ? () => _abrirDetalhesReserva(context, reservaId)
+                                    : () {}, // Botão clicável mesmo quando disponível
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: cor,
                                   foregroundColor: status == 'disponivel'
-                                      ? Colors.white
+                                      ? Colors.white70
                                       : Colors.white,
+                                  disabledBackgroundColor: cor, // Mantém a cor mesmo quando "desabilitado"
+                                  disabledForegroundColor: Colors.white70,
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 8, horizontal: 4),
                                   shape: RoundedRectangleBorder(
@@ -160,6 +159,16 @@ class AgendamentosGrid extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _abrirDetalhesReserva(BuildContext context, int reservaId) {
+    showDialog(
+      context: context,
+      builder: (context) => ChangeNotifierProvider(
+        create: (_) => DetalhesReservaController(),
+        child: DetalhesReservaModal(reservaId: reservaId),
+      ),
     );
   }
 }

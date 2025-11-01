@@ -164,8 +164,8 @@ class HomeSection extends StatelessWidget {
                                       itemBuilder: (context, index) {
                                         final reserva = controller.proximasReservas[index];
                                         return ReservationTile(
-                                          name: reserva.clienteNome,
-                                          time: reserva.horario,
+                                          name: reserva.cliente?['nomeCompleto'] ?? 'Cliente',
+                                          time: '${reserva.hora.toString().padLeft(2, '0')}:00',
                                           data: reserva.data,
                                           status: reserva.status,
                                           statusColor: _getStatusColor(reserva.status),
@@ -292,8 +292,8 @@ class HomeSection extends StatelessWidget {
                                       itemBuilder: (context, index) {
                                         final reserva = controller.proximasReservas[index];
                                         return ReservationTile(
-                                          name: reserva.clienteNome,
-                                          time: reserva.horario,
+                                          name: reserva.cliente?['nomeCompleto'] ?? 'Cliente',
+                                          time: '${reserva.hora.toString().padLeft(2, '0')}:00',
                                           data: reserva.data,
                                           status: reserva.status,
                                           statusColor: _getStatusColor(reserva.status),
