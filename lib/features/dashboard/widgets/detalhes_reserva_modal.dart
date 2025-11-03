@@ -6,10 +6,14 @@ import '../controllers/agendamentos_controller.dart';
 
 class DetalhesReservaModal extends StatefulWidget {
   final int reservaId;
+  final String? dataOcorrencia; // yyyy-MM-dd
+  final int? horaOcorrencia;    // 0-23
 
   const DetalhesReservaModal({
     super.key,
     required this.reservaId,
+    this.dataOcorrencia,
+    this.horaOcorrencia,
   });
 
   @override
@@ -17,6 +21,25 @@ class DetalhesReservaModal extends StatefulWidget {
 }
 
 class _DetalhesReservaModalState extends State<DetalhesReservaModal> {
+  String? _formatarData(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    try {
+      final base = iso.split('T')[0];
+      final p = base.split('-');
+      if (p.length == 3) {
+        return '${p[2]}/${p[1]}/${p[0]}';
+      }
+      return base;
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  String? _formatarHora(int? hora) {
+    if (hora == null) return null;
+    return '${hora.toString().padLeft(2, '0')}:00';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -165,8 +188,8 @@ class _DetalhesReservaModalState extends State<DetalhesReservaModal> {
                   Icons.event,
                   [
                     _buildInfoRow('Quadra', quadraNome),
-                    _buildInfoRow('Data', reserva.dataFormatada),
-                    _buildInfoRow('Horário', reserva.horaFormatada),
+                    _buildInfoRow('Data', _formatarData(widget.dataOcorrencia) ?? reserva.dataFormatada),
+                    _buildInfoRow('Horário', _formatarHora(widget.horaOcorrencia) ?? reserva.horaFormatada),
                     _buildInfoRow(
                       'Valor',
                       'R\$ ${reserva.precoReais.toStringAsFixed(2)}',

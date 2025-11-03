@@ -122,7 +122,12 @@ class AgendamentosGrid extends StatelessWidget {
                               height: 44,
                               child: ElevatedButton(
                                 onPressed: reservaId != null
-                                    ? () => _abrirDetalhesReserva(context, reservaId)
+                                    ? () => _abrirDetalhesReserva(
+                                          context,
+                                          reservaId,
+                                          horarioQuadra['ocorrenciaData'] as String?,
+                                          horarioQuadra['ocorrenciaHora'] as int?,
+                                        )
                                     : () {}, // Botão clicável mesmo quando disponível
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: cor,
@@ -162,12 +167,21 @@ class AgendamentosGrid extends StatelessWidget {
     );
   }
 
-  void _abrirDetalhesReserva(BuildContext context, int reservaId) {
+  void _abrirDetalhesReserva(
+    BuildContext context,
+    int reservaId,
+    String? ocorrenciaData,
+    int? ocorrenciaHora,
+  ) {
     showDialog(
       context: context,
       builder: (context) => ChangeNotifierProvider(
         create: (_) => DetalhesReservaController(),
-        child: DetalhesReservaModal(reservaId: reservaId),
+        child: DetalhesReservaModal(
+          reservaId: reservaId,
+          dataOcorrencia: ocorrenciaData,
+          horaOcorrencia: ocorrenciaHora,
+        ),
       ),
     );
   }

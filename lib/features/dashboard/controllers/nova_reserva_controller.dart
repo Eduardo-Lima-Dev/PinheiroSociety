@@ -7,7 +7,7 @@ import '../../../services/repositories/repositories.dart';
 class NovaReservaController extends ChangeNotifier {
   // Flag para evitar uso após dispose
   bool _disposed = false;
-  
+
   // Dados da reserva
   Cliente? clienteSelecionado;
   Map<String, dynamic>? quadraSelecionada;
@@ -15,17 +15,18 @@ class NovaReservaController extends ChangeNotifier {
   HorarioDisponivel? horarioSelecionado;
   int duracaoMinutos = 60;
   bool isClienteFixo = false;
-  
+  DateTime? dataFimRecorrencia;
+
   // Dados de disponibilidade
   List<Map<String, dynamic>> quadras = [];
   List<Cliente> clientes = [];
   DisponibilidadeQuadra? disponibilidade;
-  
+
   // Estados
   bool isLoading = false;
   bool isLoadingDisponibilidade = false;
   String? error;
-  
+
   // Dados de pagamento
   String? formaPagamento;
   int? percentualPago;
@@ -36,10 +37,11 @@ class NovaReservaController extends ChangeNotifier {
 
     try {
       print('DEBUG: Carregando dados iniciais...');
-      
+
       // Carregar quadras
       final quadrasResp = await QuadraRepository.getQuadras();
-      print('DEBUG: Resposta quadras: ${quadrasResp['success']}, Dados: ${quadrasResp['data']}');
+      print(
+          'DEBUG: Resposta quadras: ${quadrasResp['success']}, Dados: ${quadrasResp['data']}');
       if (quadrasResp['success'] == true) {
         quadras = List<Map<String, dynamic>>.from(quadrasResp['data'] ?? [])
             .where((q) => q['ativa'] == true)
@@ -52,13 +54,14 @@ class NovaReservaController extends ChangeNotifier {
       print('DEBUG: Resposta clientes RAW: $clientesResp');
       print('DEBUG: Resposta clientes success: ${clientesResp['success']}');
       print('DEBUG: Tipo de data: ${clientesResp['data'].runtimeType}');
-      
+
       if (clientesResp['success'] == true) {
         final clientesData = clientesResp['data'];
         print('DEBUG: clientesData: $clientesData');
-        
+
         if (clientesData is List) {
-          print('DEBUG: clientesData é uma lista com ${clientesData.length} itens');
+          print(
+              'DEBUG: clientesData é uma lista com ${clientesData.length} itens');
           try {
             clientes = clientesData.map((c) {
               print('DEBUG: Convertendo cliente: $c');
@@ -73,18 +76,22 @@ class NovaReservaController extends ChangeNotifier {
             setError('Erro ao processar clientes: $e');
           }
         } else {
-          print('ERROR: clientesData não é uma lista: ${clientesData.runtimeType}');
+          print(
+              'ERROR: clientesData não é uma lista: ${clientesData.runtimeType}');
         }
       } else {
-        print('ERROR: Falha ao carregar clientes: ${clientesResp['error'] ?? "Erro desconhecido"}');
-        setError('Erro ao carregar clientes: ${clientesResp['error'] ?? "Erro desconhecido"}');
+        print(
+            'ERROR: Falha ao carregar clientes: ${clientesResp['error'] ?? "Erro desconhecido"}');
+        setError(
+            'Erro ao carregar clientes: ${clientesResp['error'] ?? "Erro desconhecido"}');
       }
     } catch (e) {
       print('ERROR: Exceção ao carregar dados: ${e.toString()}');
       setError('Erro ao carregar dados: ${e.toString()}');
     } finally {
       setLoading(false);
-      print('DEBUG: Carregamento finalizado. Clientes: ${clientes.length}, Quadras: ${quadras.length}');
+      print(
+          'DEBUG: Carregamento finalizado. Clientes: ${clientes.length}, Quadras: ${quadras.length}');
     }
   }
 
@@ -97,7 +104,7 @@ class NovaReservaController extends ChangeNotifier {
     try {
       final quadraId = quadraSelecionada!['id'] as int;
       final dataFormatada = _formatarDataParaAPI(dataSelecionada!);
-      
+
       final response = await QuadraRepository.getDisponibilidadeQuadra(
         quadraId: quadraId,
         data: dataFormatada,
@@ -105,8 +112,7 @@ class NovaReservaController extends ChangeNotifier {
 
       if (response['success'] == true) {
         disponibilidade = DisponibilidadeQuadra.fromJson(
-          response['data'] as Map<String, dynamic>
-        );
+            response['data'] as Map<String, dynamic>);
       } else {
         setError('Erro ao carregar disponibilidade');
       }
@@ -126,18 +132,18 @@ class NovaReservaController extends ChangeNotifier {
     try {
       final quadraIdRaw = quadraSelecionada!['id'];
       final clienteIdRaw = clienteSelecionado!.id;
-      
+
       int quadraId;
       if (quadraIdRaw is int) {
         quadraId = quadraIdRaw;
       } else {
         quadraId = int.parse(quadraIdRaw.toString());
       }
-      
-      final int clienteId = clienteIdRaw is int 
+
+      final int clienteId = clienteIdRaw is int
           ? clienteIdRaw as int
           : int.parse(clienteIdRaw.toString());
-      
+
       final reserva = Reserva(
         clienteId: clienteId,
         quadraId: quadraId,
@@ -148,11 +154,24 @@ class NovaReservaController extends ChangeNotifier {
         observacoes: isClienteFixo ? 'Cliente fixo (mensalista)' : null,
       );
 
-      // Criar JSON com dados de pagamento
-      final reservaJson = reserva.toCreateJson(
-        payment: formaPagamento,
-        percentualPago: percentualPago,
-      );
+      // Criar JSON com dados de pagamento e recorrência (quando cliente fixo)
+      final reservaJson = {
+        'clienteId': reserva.clienteId,
+        'quadraId': reserva.quadraId,
+        'data': reserva.data,
+        'hora': reserva.hora,
+        if (formaPagamento != null) 'payment': formaPagamento,
+        if (percentualPago != null) 'percentualPago': percentualPago,
+        if (reserva.observacoes != null && reserva.observacoes!.isNotEmpty)
+          'observacoes': reserva.observacoes,
+        if (isClienteFixo) ...{
+          'recorrente': true,
+          // weekday do Dart: 1=Mon ... 7=Sun. Backend deve alinhar.
+          'diaSemana': dataSelecionada!.weekday,
+          if (dataFimRecorrencia != null)
+            'dataFimRecorrencia': _formatarDataParaAPI(dataFimRecorrencia!),
+        },
+      };
 
       print('DEBUG: Criando reserva com dados: $reservaJson');
 
@@ -163,7 +182,8 @@ class NovaReservaController extends ChangeNotifier {
       if (response['success'] == true) {
         return true;
       } else {
-        final errorMsg = response['error'] ?? response['message'] ?? 'Erro ao criar reserva';
+        final errorMsg =
+            response['error'] ?? response['message'] ?? 'Erro ao criar reserva';
         setError(errorMsg);
         print('ERROR: $errorMsg');
         return false;
@@ -202,9 +222,9 @@ class NovaReservaController extends ChangeNotifier {
 
   bool podeAvancar() {
     return clienteSelecionado != null &&
-           quadraSelecionada != null &&
-           dataSelecionada != null &&
-           horarioSelecionado != null;
+        quadraSelecionada != null &&
+        dataSelecionada != null &&
+        horarioSelecionado != null;
   }
 
   double get valorTotal {
@@ -255,6 +275,12 @@ class NovaReservaController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selecionarFimRecorrencia(DateTime? data) {
+    if (_disposed) return;
+    dataFimRecorrencia = data;
+    notifyListeners();
+  }
+
   void toggleClienteFixo(bool value) {
     if (_disposed) return;
     isClienteFixo = value;
@@ -281,6 +307,7 @@ class NovaReservaController extends ChangeNotifier {
     horarioSelecionado = null;
     duracaoMinutos = 60;
     isClienteFixo = false;
+    dataFimRecorrencia = null;
     disponibilidade = null;
     formaPagamento = null;
     percentualPago = null;
@@ -318,4 +345,3 @@ class NovaReservaController extends ChangeNotifier {
     super.dispose();
   }
 }
-

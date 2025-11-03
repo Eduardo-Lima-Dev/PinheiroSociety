@@ -67,7 +67,7 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
 
                 // Cliente
@@ -110,7 +110,8 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                   children: [
                     Checkbox(
                       value: controller.isClienteFixo,
-                      onChanged: (value) => controller.toggleClienteFixo(value ?? false),
+                      onChanged: (value) =>
+                          controller.toggleClienteFixo(value ?? false),
                       fillColor: WidgetStateProperty.resolveWith<Color>(
                         (states) => states.contains(WidgetState.selected)
                             ? Colors.green
@@ -126,6 +127,13 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                     ),
                   ],
                 ),
+
+                if (controller.isClienteFixo) ...[
+                  const SizedBox(height: 8),
+                  _buildLabel('Fim da recorrência'),
+                  const SizedBox(height: 8),
+                  _buildFimRecorrenciaPicker(controller),
+                ],
 
                 if (controller.error != null)
                   Padding(
@@ -158,7 +166,8 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: controller.podeAvancar()
-                          ? () => _abrirConfirmacaoPagamento(context, controller)
+                          ? () =>
+                              _abrirConfirmacaoPagamento(context, controller)
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
@@ -229,7 +238,7 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
         ),
       );
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -240,8 +249,8 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
       child: DropdownButton<Cliente>(
         value: controller.clienteSelecionado,
         hint: Text(
-          controller.clientes.isEmpty 
-              ? 'Nenhum cliente disponível' 
+          controller.clientes.isEmpty
+              ? 'Nenhum cliente disponível'
               : 'Selecione o cliente',
           style: GoogleFonts.poppins(
             color: Colors.white38,
@@ -264,11 +273,13 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
             ),
           );
         }).toList(),
-        onChanged: controller.clientes.isEmpty ? null : (cliente) {
-          if (cliente != null) {
-            controller.selecionarCliente(cliente);
-          }
-        },
+        onChanged: controller.clientes.isEmpty
+            ? null
+            : (cliente) {
+                if (cliente != null) {
+                  controller.selecionarCliente(cliente);
+                }
+              },
       ),
     );
   }
@@ -373,8 +384,9 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
 
   Widget _buildHorarioDropdown(NovaReservaController controller) {
     final horariosDisponiveis = controller.disponibilidade?.horarios
-        .where((h) => h.disponivel)
-        .toList() ?? [];
+            .where((h) => h.disponivel)
+            .toList() ??
+        [];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -469,6 +481,62 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
     );
   }
 
+  Widget _buildFimRecorrenciaPicker(NovaReservaController controller) {
+    final data = controller.dataFimRecorrencia;
+    return InkWell(
+      onTap: () async {
+        final initial = data ??
+            (controller.dataSelecionada ?? DateTime.now())
+                .add(const Duration(days: 30));
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: initial,
+          firstDate: controller.dataSelecionada ?? DateTime.now(),
+          lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.dark(
+                  primary: Colors.green,
+                  onPrimary: Colors.white,
+                  surface: Color(0xFF2A2A2A),
+                  onSurface: Colors.white,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (picked != null) {
+          controller.selecionarFimRecorrencia(picked);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.event_repeat, color: Colors.white70, size: 18),
+            const SizedBox(width: 12),
+            Text(
+              data != null
+                  ? '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}'
+                  : 'Selecione a data final da recorrência',
+              style: GoogleFonts.poppins(
+                color: data != null ? Colors.white : Colors.white38,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _abrirConfirmacaoPagamento(
     BuildContext context,
     NovaReservaController controller,
@@ -485,8 +553,8 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
 
     // Se a reserva foi criada com sucesso, fechar o modal principal
     if (resultado == true && mounted) {
-      Navigator.of(context).pop(true); // Fecha modal de nova reserva com sucesso
+      Navigator.of(context)
+          .pop(true); // Fecha modal de nova reserva com sucesso
     }
   }
 }
-
