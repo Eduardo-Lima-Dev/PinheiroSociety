@@ -92,6 +92,22 @@ class UserStorage {
     return role?.toUpperCase() == 'ADMIN';
   }
 
+  /// Recupera o token de autenticação
+  static Future<String?> getToken() async {
+    try {
+      if (_userData != null) {
+        // Tenta campos comuns para token
+        return _userData!['token']?.toString() ?? 
+               _userData!['accessToken']?.toString() ??
+               _userData!['access_token']?.toString();
+      }
+      return null;
+    } catch (e) {
+      print('Erro ao recuperar token: $e');
+      return null;
+    }
+  }
+
   /// Remove os dados do usuário (logout)
   static Future<void> clearUserData() async {
     try {
