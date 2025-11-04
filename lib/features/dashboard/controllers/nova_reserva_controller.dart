@@ -303,6 +303,7 @@ class NovaReservaController extends ChangeNotifier {
       final dados = {
         'novaData': _formatarDataParaAPI(dataSelecionada!),
         'novaHora': horarioSelecionado!.hora,
+        'duracaoMinutos': duracaoMinutos,
         'observacoes': 'Reagendamento solicitado',
       };
 

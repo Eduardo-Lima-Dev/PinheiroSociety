@@ -533,31 +533,6 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
   }
 
   Widget _buildDuracaoDropdown(NovaReservaController controller) {
-    // Se estiver em modo de edição, mostrar campo bloqueado
-    if (controller.modoEdicao) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.lock, color: Colors.white24, size: 18),
-            const SizedBox(width: 12),
-            Text(
-              '${controller.duracaoMinutos} minutos',
-              style: GoogleFonts.poppins(
-                color: Colors.white54,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
