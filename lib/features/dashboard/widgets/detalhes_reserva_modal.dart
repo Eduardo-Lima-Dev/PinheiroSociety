@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../controllers/detalhes_reserva_controller.dart';
-import '../controllers/agendamentos_controller.dart';
+import '../controllers/nova_reserva_controller.dart';
+import 'nova_reserva_modal.dart';
 
 class DetalhesReservaModal extends StatefulWidget {
   final int reservaId;
@@ -190,6 +191,7 @@ class _DetalhesReservaModalState extends State<DetalhesReservaModal> {
                     _buildInfoRow('Quadra', quadraNome),
                     _buildInfoRow('Data', _formatarData(widget.dataOcorrencia) ?? reserva.dataFormatada),
                     _buildInfoRow('Horário', _formatarHora(widget.horaOcorrencia) ?? reserva.horaFormatada),
+                    _buildInfoRow('Duração', reserva.duracaoFormatada),
                     _buildInfoRow(
                       'Valor',
                       'R\$ ${reserva.precoReais.toStringAsFixed(2)}',
@@ -489,38 +491,41 @@ class _DetalhesReservaModalState extends State<DetalhesReservaModal> {
       if (!context.mounted) return;
 
       if (sucesso) {
-        // Recarregar agendamentos
-        context.read<AgendamentosController>().carregarDadosAgendamentos();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Reserva cancelada com sucesso!',
-              style: GoogleFonts.poppins(),
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true); // Retorna true para indicar sucesso
       }
     }
   }
 
-  void _reagendarReserva(
+  Future<void> _reagendarReserva(
     BuildContext context,
     DetalhesReservaController controller,
-  ) {
-    // TODO: Implementar modal de reagendamento
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Funcionalidade de reagendamento em desenvolvimento',
-          style: GoogleFonts.poppins(),
-        ),
-        backgroundColor: Colors.blue,
+  ) async {
+    final reserva = controller.reserva;
+    if (reserva == null) return;
+
+    // Criar controller para nova reserva em modo de edição
+    final novaReservaController = NovaReservaController();
+    
+    // Inicializar modo de edição com os dados da reserva atual
+    novaReservaController.inicializarModoEdicao(reserva);
+    
+    // Abrir modal de reagendamento
+    final resultado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => ChangeNotifierProvider.value(
+        value: novaReservaController,
+        child: const NovaReservaModal(modoEdicao: true),
       ),
     );
+
+    // Se reagendou com sucesso
+    if (resultado == true && context.mounted) {
+      // Fechar modal de detalhes PRIMEIRO
+      Navigator.of(context).pop(true); // Retorna true para indicar sucesso
+    }
+    
+    // Limpar o controller após o uso
+    novaReservaController.dispose();
   }
 }
 

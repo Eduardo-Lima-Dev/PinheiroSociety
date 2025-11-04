@@ -309,15 +309,7 @@ class HomeSection extends StatelessWidget {
                           Expanded(
                             child: Panel(
                               title: 'Mesas Abertas',
-                              child: Center(
-                                child: Text(
-                                  'Funcionalidade em desenvolvimento',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white70,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
+                              child: _buildMesasAbertas(),
                             ),
                           ),
                         ],

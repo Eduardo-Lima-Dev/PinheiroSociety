@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../controllers/detalhes_reserva_controller.dart';
+import '../controllers/agendamentos_controller.dart';
 import 'detalhes_reserva_modal.dart';
 
 class AgendamentosGrid extends StatelessWidget {
@@ -167,13 +168,13 @@ class AgendamentosGrid extends StatelessWidget {
     );
   }
 
-  void _abrirDetalhesReserva(
+  Future<void> _abrirDetalhesReserva(
     BuildContext context,
     int reservaId,
     String? ocorrenciaData,
     int? ocorrenciaHora,
-  ) {
-    showDialog(
+  ) async {
+    final resultado = await showDialog<bool>(
       context: context,
       builder: (context) => ChangeNotifierProvider(
         create: (_) => DetalhesReservaController(),
@@ -184,5 +185,21 @@ class AgendamentosGrid extends StatelessWidget {
         ),
       ),
     );
+
+    // Se reagendou ou cancelou com sucesso, recarregar agendamentos
+    if (resultado == true && context.mounted) {
+      context.read<AgendamentosController>().carregarDadosAgendamentos();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Operação realizada com sucesso!',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 }

@@ -13,6 +13,7 @@ class Reserva {
   final int? reservaPaiId;
   final Map<String, dynamic>? cliente;
   final Map<String, dynamic>? quadra;
+  final int duracaoMinutos; // Duração da reserva em minutos
 
   Reserva({
     this.id,
@@ -29,6 +30,7 @@ class Reserva {
     this.reservaPaiId,
     this.cliente,
     this.quadra,
+    this.duracaoMinutos = 60, // Padrão: 60 minutos
   });
 
   factory Reserva.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class Reserva {
       reservaPaiId: json['reservaPaiId'] as int?,
       cliente: json['cliente'] as Map<String, dynamic>?,
       quadra: json['quadra'] as Map<String, dynamic>?,
+      duracaoMinutos: json['duracaoMinutos'] as int? ?? 60, // Padrão: 60 minutos
     );
   }
 
@@ -97,6 +100,7 @@ class Reserva {
     int? reservaPaiId,
     Map<String, dynamic>? cliente,
     Map<String, dynamic>? quadra,
+    int? duracaoMinutos,
   }) {
     return Reserva(
       id: id ?? this.id,
@@ -113,12 +117,25 @@ class Reserva {
       reservaPaiId: reservaPaiId ?? this.reservaPaiId,
       cliente: cliente ?? this.cliente,
       quadra: quadra ?? this.quadra,
+      duracaoMinutos: duracaoMinutos ?? this.duracaoMinutos,
     );
   }
 
   double get precoReais => precoCents / 100;
   
   String get horaFormatada => '${hora.toString().padLeft(2, '0')}:00';
+  
+  String get duracaoFormatada {
+    if (duracaoMinutos < 60) {
+      return '$duracaoMinutos min';
+    }
+    final horas = duracaoMinutos ~/ 60;
+    final minutosRestantes = duracaoMinutos % 60;
+    if (minutosRestantes == 0) {
+      return '$horas${horas == 1 ? ' hora' : ' horas'}';
+    }
+    return '$horas${horas == 1 ? 'h' : 'h'}${minutosRestantes}min';
+  }
   
   String get dataFormatada {
     try {

@@ -6,7 +6,12 @@ import '../models/cliente.dart';
 import 'confirmar_pagamento_modal.dart';
 
 class NovaReservaModal extends StatefulWidget {
-  const NovaReservaModal({super.key});
+  final bool modoEdicao;
+  
+  const NovaReservaModal({
+    super.key,
+    this.modoEdicao = false,
+  });
 
   @override
   State<NovaReservaModal> createState() => _NovaReservaModalState();
@@ -16,9 +21,13 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NovaReservaController>().carregarDadosIniciais();
-    });
+    // Se não estiver em modo de edição, carregar dados
+    // (no modo de edição, inicializarModoEdicao já carrega)
+    if (!widget.modoEdicao) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<NovaReservaController>().carregarDadosIniciais();
+      });
+    }
   }
 
   @override
@@ -52,7 +61,7 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                 Row(
                   children: [
                     Text(
-                      'Nova Reserva',
+                      controller.modoEdicao ? 'Reagendar Reserva' : 'Nova Reserva',
                       style: GoogleFonts.poppins(
                         color: Colors.white,
                         fontSize: 20,
@@ -110,18 +119,24 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                   children: [
                     Checkbox(
                       value: controller.isClienteFixo,
-                      onChanged: (value) =>
-                          controller.toggleClienteFixo(value ?? false),
+                      onChanged: controller.modoEdicao 
+                          ? null 
+                          : (value) => controller.toggleClienteFixo(value ?? false),
                       fillColor: WidgetStateProperty.resolveWith<Color>(
-                        (states) => states.contains(WidgetState.selected)
-                            ? Colors.green
-                            : Colors.white24,
+                        (states) {
+                          if (states.contains(WidgetState.disabled)) {
+                            return Colors.white12;
+                          }
+                          return states.contains(WidgetState.selected)
+                              ? Colors.green
+                              : Colors.white24;
+                        },
                       ),
                     ),
                     Text(
-                      'Cliente fixo (mensalista)',
+                      'Cliente fixo',
                       style: GoogleFonts.poppins(
-                        color: Colors.white70,
+                        color: controller.modoEdicao ? Colors.white38 : Colors.white70,
                         fontSize: 14,
                       ),
                     ),
@@ -133,6 +148,26 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                   _buildLabel('Fim da recorrência'),
                   const SizedBox(height: 8),
                   _buildFimRecorrenciaPicker(controller),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        color: Colors.blue,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Limite máximo: 12 meses (1 ano)',
+                          style: GoogleFonts.poppins(
+                            color: Colors.blue,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
 
                 if (controller.error != null)
@@ -166,8 +201,9 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: controller.podeAvancar()
-                          ? () =>
-                              _abrirConfirmacaoPagamento(context, controller)
+                          ? () => controller.modoEdicao
+                              ? _confirmarReagendamento(context, controller)
+                              : _abrirConfirmacaoPagamento(context, controller)
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
@@ -183,7 +219,7 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                         ),
                       ),
                       child: Text(
-                        'Avançar',
+                        controller.modoEdicao ? 'Confirmar' : 'Avançar',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -213,7 +249,7 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
 
   Widget _buildClienteDropdown(NovaReservaController controller) {
     // Se não houver clientes, mostrar mensagem
-    if (controller.clientes.isEmpty && !controller.isLoading) {
+    if (controller.clientes.isEmpty && !controller.isLoading && !controller.modoEdicao) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -232,6 +268,31 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
                   color: Colors.orange,
                   fontSize: 12,
                 ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Se estiver em modo de edição, mostrar campo bloqueado
+    if (controller.modoEdicao) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lock, color: Colors.white24, size: 18),
+            const SizedBox(width: 12),
+            Text(
+              controller.clienteSelecionado?.nomeCompleto ?? 'Cliente não informado',
+              style: GoogleFonts.poppins(
+                color: Colors.white54,
+                fontSize: 14,
               ),
             ),
           ],
@@ -285,6 +346,31 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
   }
 
   Widget _buildQuadraDropdown(NovaReservaController controller) {
+    // Se estiver em modo de edição, mostrar campo bloqueado
+    if (controller.modoEdicao) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lock, color: Colors.white24, size: 18),
+            const SizedBox(width: 12),
+            Text(
+              controller.quadraSelecionada?['nome'] as String? ?? 'Quadra não informada',
+              style: GoogleFonts.poppins(
+                color: Colors.white54,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -383,10 +469,8 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
   }
 
   Widget _buildHorarioDropdown(NovaReservaController controller) {
-    final horariosDisponiveis = controller.disponibilidade?.horarios
-            .where((h) => h.disponivel)
-            .toList() ??
-        [];
+    // Usa horários filtrados por disponibilidade e hora atual
+    final horariosDisponiveis = controller.horariosDisponiveisFiltrados;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -410,7 +494,9 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
           : DropdownButton<int>(
               value: controller.horarioSelecionado?.hora,
               hint: Text(
-                'Selecione o horário',
+                horariosDisponiveis.isEmpty
+                    ? 'Nenhum horário disponível'
+                    : 'Selecione o horário',
                 style: GoogleFonts.poppins(
                   color: Colors.white38,
                   fontSize: 14,
@@ -447,6 +533,31 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
   }
 
   Widget _buildDuracaoDropdown(NovaReservaController controller) {
+    // Se estiver em modo de edição, mostrar campo bloqueado
+    if (controller.modoEdicao) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lock, color: Colors.white24, size: 18),
+            const SizedBox(width: 12),
+            Text(
+              '${controller.duracaoMinutos} minutos',
+              style: GoogleFonts.poppins(
+                color: Colors.white54,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -483,16 +594,23 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
 
   Widget _buildFimRecorrenciaPicker(NovaReservaController controller) {
     final data = controller.dataFimRecorrencia;
+    final dataInicial = controller.dataSelecionada ?? DateTime.now();
+    final limiteMaximo = dataInicial.add(const Duration(days: 365)); // 12 meses = 365 dias
+    
     return InkWell(
       onTap: () async {
         final initial = data ??
-            (controller.dataSelecionada ?? DateTime.now())
-                .add(const Duration(days: 30));
+            dataInicial.add(const Duration(days: 30));
+        
+        // Garantir que o initialDate não ultrapasse o limite máximo
+        final initialDateSafe = initial.isAfter(limiteMaximo) ? limiteMaximo : initial;
+        
         final picked = await showDatePicker(
           context: context,
-          initialDate: initial,
-          firstDate: controller.dataSelecionada ?? DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+          initialDate: initialDateSafe,
+          firstDate: dataInicial,
+          lastDate: limiteMaximo, // Limite de 12 meses (1 ano)
+          helpText: 'Selecionar data final (máx. 12 meses)',
           builder: (context, child) {
             return Theme(
               data: Theme.of(context).copyWith(
@@ -522,13 +640,15 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
           children: [
             const Icon(Icons.event_repeat, color: Colors.white70, size: 18),
             const SizedBox(width: 12),
-            Text(
-              data != null
-                  ? '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}'
-                  : 'Selecione a data final da recorrência',
-              style: GoogleFonts.poppins(
-                color: data != null ? Colors.white : Colors.white38,
-                fontSize: 14,
+            Expanded(
+              child: Text(
+                data != null
+                    ? '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}'
+                    : 'Selecione a data final da recorrência',
+                style: GoogleFonts.poppins(
+                  color: data != null ? Colors.white : Colors.white38,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
@@ -555,6 +675,30 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
     if (resultado == true && mounted) {
       Navigator.of(context)
           .pop(true); // Fecha modal de nova reserva com sucesso
+    }
+  }
+
+  Future<void> _confirmarReagendamento(
+    BuildContext context,
+    NovaReservaController controller,
+  ) async {
+    final sucesso = await controller.reagendarReserva();
+    
+    if (!mounted) return;
+
+    if (sucesso) {
+      controller.reset();
+      Navigator.of(context).pop(true); // Fecha o modal e retorna true
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(controller.error ?? 'Erro ao reagendar reserva'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 }

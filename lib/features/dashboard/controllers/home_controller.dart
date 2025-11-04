@@ -92,6 +92,7 @@ class HomeController extends ChangeNotifier {
             status: 'ATIVA',
             cliente: {'nomeCompleto': r.cliente},
             quadra: {'nome': r.quadra},
+            duracaoMinutos: 60, // Padrão para dashboard
           );
         }).toList() as List<Reserva>;
 

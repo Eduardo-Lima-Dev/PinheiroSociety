@@ -70,6 +70,7 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
                           '${data.year} às ${horario.horaFormatada}'
                       : '',
                 ),
+                _buildInfoRow('Duração:', _formatarDuracao(controller.duracaoMinutos)),
                 _buildInfoRow('Valor Total:', 'R\$ ${valorTotal.toStringAsFixed(2)}'),
 
                 const SizedBox(height: 24),
@@ -218,6 +219,18 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
         ),
       ),
     );
+  }
+
+  String _formatarDuracao(int duracaoMinutos) {
+    if (duracaoMinutos < 60) {
+      return '$duracaoMinutos min';
+    }
+    final horas = duracaoMinutos ~/ 60;
+    final minutosRestantes = duracaoMinutos % 60;
+    if (minutosRestantes == 0) {
+      return '$horas${horas == 1 ? ' hora' : ' horas'}';
+    }
+    return '$horas${horas == 1 ? 'h' : 'h'}${minutosRestantes}min';
   }
 
   Widget _buildInfoRow(String label, String value) {
