@@ -40,6 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _clientesController = ClientesController();
     _cadastroAcessoController = CadastroAcessoController();
     _agendamentosController = AgendamentosController();
+    _cadastroAcessoController.carregarFuncionarios();
 
     // Carregar dados iniciais
     _carregarNomeUsuario();
@@ -213,6 +214,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       selected: dashboardController.selectedSection == 'cadastro-acesso',
                                       onTap: () {
                                         dashboardController.selectSection('cadastro-acesso');
+                                      _cadastroAcessoController.carregarFuncionarios();
                                       },
                                     ),
                                   ],
