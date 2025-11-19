@@ -31,7 +31,19 @@ class ClientesController extends ChangeNotifier {
   Cliente? clienteEditando;
   Timer? searchDebounceTimer;
   bool isLoading = false;
+  bool isCarregandoResumo = false;
   String? error;
+  String? resumoError;
+  String termoBusca = '';
+
+  int totalClientes = 0;
+
+  int pageSize = 10;
+  int paginaAtual = 1;
+  int totalPaginas = 1;
+  int totalRegistros = 0;
+
+  final List<int> pageSizeOptions = [10, 20, 30, 50];
 
   ClientesController() {
     searchController.addListener(_onSearchChanged);
@@ -40,61 +52,241 @@ class ClientesController extends ChangeNotifier {
   void _onSearchChanged() {
     searchDebounceTimer?.cancel();
     searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-      _filtrarClientes();
+      termoBusca = searchController.text.trim();
+      buscarClientes(resetPage: true);
     });
   }
 
-  void _filtrarClientes() {
-    final query = searchController.text.toLowerCase().trim();
-    if (query.isEmpty) {
-      clientesFiltrados = List.from(clientes);
-    } else {
-      clientesFiltrados = clientes.where((cliente) {
-        return cliente.nomeCompleto.toLowerCase().contains(query) ||
-            cliente.email.toLowerCase().contains(query) ||
-            cliente.cpf.contains(query) ||
-            cliente.telefone.contains(query);
-      }).toList();
-    }
-    notifyListeners();
+  Future<void> carregarClientes() async {
+    await Future.wait([
+      carregarResumoClientes(),
+      buscarClientes(resetPage: true),
+    ]);
   }
 
-  Future<void> carregarClientes() async {
-    setLoading(true);
-    clearError();
+  Future<void> carregarResumoClientes() async {
+    isCarregandoResumo = true;
+    resumoError = null;
+    notifyListeners();
 
     try {
-      final response = await ClienteRepository.getClientes();
-      if (response['success'] == true) {
-        final responseData = response['data'];
+      final result = await ClienteRepository.getClientes();
+      if (result['success'] == true) {
+        final responseData = result['data'];
+        List<dynamic> listaClientes = [];
 
-        // Se a resposta é uma lista direta
         if (responseData is List) {
-          clientes =
-              responseData.map((item) => Cliente.fromJson(item)).toList();
-        }
-        // Se a resposta tem estrutura {data: [...], pagination: {...}}
-        else if (responseData is Map<String, dynamic>) {
+          listaClientes = responseData;
+        } else if (responseData is Map<String, dynamic>) {
           final lista = responseData['data'] ??
               responseData['items'] ??
               responseData['clientes'];
           if (lista is List) {
-            clientes = lista.map((item) => Cliente.fromJson(item)).toList();
-          } else {
-            clientes = [];
+            listaClientes = lista;
           }
-        } else {
-          clientes = [];
         }
-        _filtrarClientes();
+
+        if (listaClientes.isNotEmpty) {
+          final todosClientes =
+              listaClientes.map((item) => Cliente.fromJson(item)).toList();
+          totalClientes = todosClientes.length;
+        } else {
+          totalClientes = 0;
+        }
       } else {
-        setError(response['error'] ?? 'Erro ao carregar clientes');
+        resumoError =
+            result['error'] ?? 'Não foi possível carregar os clientes';
+        totalClientes = 0;
       }
     } catch (e) {
-      setError('Erro de conexão: ${e.toString()}');
+      resumoError = 'Erro inesperado ao carregar clientes: ${e.toString()}';
+      totalClientes = 0;
     } finally {
-      setLoading(false);
+      isCarregandoResumo = false;
+      notifyListeners();
     }
+  }
+
+  Future<void> buscarClientes({bool resetPage = false}) async {
+    if (resetPage) {
+      paginaAtual = 1;
+    }
+
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final result = await ClienteRepository.buscarClientes(
+        query: termoBusca.isEmpty ? null : termoBusca,
+        page: paginaAtual,
+        pageSize: pageSize,
+      );
+
+      print('DEBUG Clientes - Result: ${result['success']}');
+      print('DEBUG Clientes - Data type: ${result['data']?.runtimeType}');
+      print('DEBUG Clientes - Data: ${result['data']}');
+
+      if (result['success'] == true) {
+        final responseData = result['data'];
+        List<dynamic> listaClientes = [];
+
+        // Se a resposta é uma lista direta
+        if (responseData is List) {
+          listaClientes = responseData;
+          print(
+              'DEBUG Clientes - Resposta é uma lista direta com ${listaClientes.length} itens');
+        }
+        // Se a resposta tem estrutura {data: [...], pagination: {...}}
+        else if (responseData is Map<String, dynamic>) {
+          print('DEBUG Clientes - Resposta é um Map, procurando lista...');
+          print(
+              'DEBUG Clientes - Chaves do Map: ${responseData.keys.toList()}');
+
+          // Tenta extrair a lista de várias formas possíveis
+          final candidatos = [
+            responseData['data'],
+            responseData['items'],
+            responseData['clientes'],
+          ];
+
+          for (final candidato in candidatos) {
+            if (candidato is List) {
+              listaClientes = candidato;
+              print(
+                  'DEBUG Clientes - Lista encontrada com ${listaClientes.length} itens');
+              break;
+            }
+          }
+
+          if (listaClientes.isEmpty) {
+            print('DEBUG Clientes - Nenhuma lista encontrada no Map');
+            print('DEBUG Clientes - Conteúdo do Map: $responseData');
+          }
+        } else {
+          print(
+              'DEBUG Clientes - Tipo de resposta não reconhecido: ${responseData?.runtimeType}');
+          print('DEBUG Clientes - Conteúdo: $responseData');
+        }
+
+        if (listaClientes.isNotEmpty) {
+          try {
+            clientes =
+                listaClientes.map((item) => Cliente.fromJson(item)).toList();
+            clientesFiltrados = List.from(clientes);
+            print(
+                'DEBUG Clientes - ${clientes.length} clientes carregados com sucesso');
+
+            // Extrair informações de paginação
+            if (responseData is Map<String, dynamic>) {
+              final pagination = responseData['pagination'];
+              if (pagination is Map<String, dynamic>) {
+                totalRegistros =
+                    _parseInt(pagination['total']) ?? clientes.length;
+                final paginaMeta = _parseInt(pagination['page']);
+                if (paginaMeta != null && paginaMeta >= 1) {
+                  paginaAtual = paginaMeta;
+                }
+                final pageSizeMeta = _parseInt(pagination['pageSize']);
+                if (pageSizeMeta != null && pageSizeMeta >= 1) {
+                  pageSize = pageSizeMeta;
+                }
+                totalPaginas = _parseInt(pagination['totalPages']) ??
+                    (totalRegistros == 0
+                        ? 1
+                        : ((totalRegistros + pageSize - 1) ~/ pageSize));
+                print(
+                    'DEBUG Clientes - Paginação: total=$totalRegistros, page=$paginaAtual, pageSize=$pageSize, totalPages=$totalPaginas');
+              } else {
+                // Se não tem paginação, assume que todos os registros foram retornados
+                // Mas isso pode não ser verdade se houver paginação no backend
+                totalRegistros = clientes.length;
+                totalPaginas = totalRegistros == 0
+                    ? 1
+                    : ((totalRegistros + pageSize - 1) ~/ pageSize);
+                print(
+                    'DEBUG Clientes - Sem paginação no backend, usando local: total=$totalRegistros, totalPages=$totalPaginas');
+              }
+            } else {
+              // Se não tem paginação no backend, faz paginação local
+              totalRegistros = clientes.length;
+              totalPaginas = totalRegistros == 0
+                  ? 1
+                  : ((totalRegistros + pageSize - 1) ~/ pageSize);
+              print(
+                  'DEBUG Clientes - Sem estrutura de paginação, usando local: total=$totalRegistros, totalPages=$totalPaginas');
+            }
+          } catch (e) {
+            print('DEBUG Clientes - Erro ao converter clientes: $e');
+            clientes = [];
+            clientesFiltrados = [];
+            totalRegistros = 0;
+            totalPaginas = 1;
+            error = 'Erro ao processar clientes: ${e.toString()}';
+          }
+        } else {
+          print('DEBUG Clientes - Lista vazia');
+          clientes = [];
+          clientesFiltrados = [];
+          totalRegistros = 0;
+          totalPaginas = 1;
+        }
+      } else {
+        print('DEBUG Clientes - API retornou erro: ${result['error']}');
+        clientes = [];
+        clientesFiltrados = [];
+        totalRegistros = 0;
+        totalPaginas = 1;
+        error = result['error'] ?? 'Não foi possível carregar os clientes';
+      }
+    } catch (e) {
+      print('DEBUG Clientes - Exceção: $e');
+      clientes = [];
+      clientesFiltrados = [];
+      totalRegistros = 0;
+      totalPaginas = 1;
+      error = 'Erro inesperado: ${e.toString()}';
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void atualizarBusca(String value) {
+    termoBusca = value.trim();
+    buscarClientes(resetPage: true);
+  }
+
+  void atualizarPageSize(int novoPageSize) {
+    if (pageSize == novoPageSize) return;
+    pageSize = novoPageSize;
+    paginaAtual = 1;
+    buscarClientes();
+  }
+
+  void irParaPagina(int pagina) {
+    if (pagina < 1 || pagina > totalPaginas || pagina == paginaAtual) return;
+    paginaAtual = pagina;
+    buscarClientes();
+  }
+
+  void proximaPagina() {
+    if (paginaAtual >= totalPaginas) return;
+    paginaAtual += 1;
+    buscarClientes();
+  }
+
+  void paginaAnterior() {
+    if (paginaAtual <= 1) return;
+    paginaAtual -= 1;
+    buscarClientes();
+  }
+
+  int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   Future<void> salvarCliente() async {

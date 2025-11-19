@@ -2,14 +2,33 @@ import '../api_client.dart';
 
 /// Repository para operações de clientes
 class ClienteRepository {
-  /// Busca todos os clientes
+  /// Busca todos os clientes (sem paginação) - usado para métricas
   static Future<Map<String, dynamic>> getClientes() async {
     return await ApiClient.get('/clientes');
   }
 
-  /// Busca clientes por query
-  static Future<Map<String, dynamic>> buscarClientes(String query) async {
-    return await ApiClient.get('/clientes/buscar?q=$query');
+  /// Busca clientes com paginação e filtros
+  static Future<Map<String, dynamic>> buscarClientes({
+    String? query,
+    required int page,
+    required int pageSize,
+  }) async {
+    final params = <String, String>{
+      'page': page.toString(),
+      'pageSize': pageSize.toString(),
+    };
+
+    if (query != null && query.isNotEmpty) {
+      final queryString = Uri(queryParameters: {
+        'q': query,
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      }).query;
+      return await ApiClient.get('/clientes/buscar?$queryString');
+    }
+
+    final queryString = Uri(queryParameters: params).query;
+    return await ApiClient.get('/clientes?$queryString');
   }
 
   /// Cria novo cliente
@@ -49,4 +68,3 @@ class ClienteRepository {
     return await ApiClient.delete('/clientes/$id');
   }
 }
-

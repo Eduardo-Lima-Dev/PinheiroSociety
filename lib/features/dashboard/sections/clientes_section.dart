@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
 import '../controllers/clientes_controller.dart';
 import '../widgets/cliente_card.dart';
@@ -74,19 +73,49 @@ class ClientesSection extends StatelessWidget {
         // Lista de clientes
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
             child: Consumer<ClientesController>(
               builder: (context, controller, child) {
-                if (controller.isLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-                    ),
-                  );
-                }
-                
-                if (controller.clientesFiltrados.isEmpty) {
-                  return Center(
+                return _buildClientesList(context, controller);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClientesList(
+    BuildContext context,
+    ClientesController controller,
+  ) {
+    if (controller.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+        ),
+      );
+    }
+
+    final clientes = controller.clientesFiltrados;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: clientes.isEmpty
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -97,41 +126,144 @@ class ClientesSection extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Nenhum cliente encontrado',
+                          controller.error ?? 'Nenhum cliente encontrado',
                           style: GoogleFonts.poppins(
-                            color: Colors.white70,
+                            color: Colors.white54,
                             fontSize: 16,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
-                  );
-                }
-                
-                return ListView.builder(
-                  itemCount: controller.clientesFiltrados.length,
-                  itemBuilder: (context, index) {
-                    final cliente = controller.clientesFiltrados[index];
-                    return ClienteCard(
-                      cliente: cliente,
-                      onEdit: () => _abrirModalCliente(context, cliente: cliente),
-                      onDelete: () => _confirmarDeletarCliente(context, cliente),
-                      formatCPF: _formatCPF,
-                      formatTelefone: _formatTelefone,
-                    );
-                  },
-                );
-              },
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: clientes.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, index) {
+                      final cliente = clientes[index];
+                      return ClienteCard(
+                        cliente: cliente,
+                        onEdit: () =>
+                            _abrirModalCliente(context, cliente: cliente),
+                        onDelete: () =>
+                            _confirmarDeletarCliente(context, cliente),
+                        formatCPF: _formatCPF,
+                        formatTelefone: _formatTelefone,
+                      );
+                    },
+                  ),
+          ),
+          if (clientes.isNotEmpty || controller.error == null) ...[
+            const Divider(color: Colors.white12, height: 1),
+            _buildPaginationFooter(controller),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationFooter(ClientesController controller) {
+    final total = controller.totalRegistros;
+    final semResultados = total == 0 || controller.clientesFiltrados.isEmpty;
+    int start = 0;
+    int end = 0;
+
+    if (!semResultados) {
+      start = ((controller.paginaAtual - 1) * controller.pageSize) + 1;
+      if (start > total) start = total;
+      end = start + controller.clientesFiltrados.length - 1;
+      if (end > total) end = total;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            semResultados
+                ? 'Nenhum registro encontrado'
+                : 'Mostrando $start - $end de $total clientes',
+            style: GoogleFonts.poppins(
+              color: Colors.white54,
+              fontSize: 12,
             ),
           ),
-        ),
-      ],
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: Colors.white70),
+                splashRadius: 20,
+                onPressed: controller.paginaAtual > 1
+                    ? controller.paginaAnterior
+                    : null,
+              ),
+              Text(
+                'Página ${controller.paginaAtual} de ${controller.totalPaginas}',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: Colors.white70),
+                splashRadius: 20,
+                onPressed: controller.paginaAtual < controller.totalPaginas
+                    ? controller.proximaPagina
+                    : null,
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Text(
+                'Por página:',
+                style: GoogleFonts.poppins(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B1E21),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: controller.pageSize,
+                    dropdownColor: const Color(0xFF1B1E21),
+                    style: GoogleFonts.poppins(color: Colors.white),
+                    items: controller.pageSizeOptions
+                        .map(
+                          (size) => DropdownMenuItem<int>(
+                            value: size,
+                            child: Text('$size'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        controller.atualizarPageSize(value);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   void _abrirModalCliente(BuildContext context, {cliente}) {
     controller.abrirModalCliente(cliente: cliente);
-    
+
     showDialog(
       context: context,
       builder: (context) => ClienteModal(
@@ -151,8 +283,8 @@ class ClientesSection extends StatelessWidget {
             if (controller.error == null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(controller.isEditing 
-                      ? 'Cliente atualizado com sucesso!' 
+                  content: Text(controller.isEditing
+                      ? 'Cliente atualizado com sucesso!'
                       : 'Cliente criado com sucesso!'),
                   backgroundColor: Colors.green,
                 ),
@@ -249,16 +381,21 @@ class ClientesSection extends StatelessWidget {
   bool _isValidCPF(String cpf) {
     cpf = cpf.replaceAll(RegExp(r'[^0-9]'), '');
     if (cpf.length != 11) return false;
-    
+
     // Validação básica de CPF
-    if (cpf == '00000000000' || cpf == '11111111111' || 
-        cpf == '22222222222' || cpf == '33333333333' ||
-        cpf == '44444444444' || cpf == '55555555555' ||
-        cpf == '66666666666' || cpf == '77777777777' ||
-        cpf == '88888888888' || cpf == '99999999999') {
+    if (cpf == '00000000000' ||
+        cpf == '11111111111' ||
+        cpf == '22222222222' ||
+        cpf == '33333333333' ||
+        cpf == '44444444444' ||
+        cpf == '55555555555' ||
+        cpf == '66666666666' ||
+        cpf == '77777777777' ||
+        cpf == '88888888888' ||
+        cpf == '99999999999') {
       return false;
     }
-    
+
     return true;
   }
 
