@@ -7,7 +7,8 @@ class ConfirmarPagamentoModal extends StatefulWidget {
   const ConfirmarPagamentoModal({super.key});
 
   @override
-  State<ConfirmarPagamentoModal> createState() => _ConfirmarPagamentoModalState();
+  State<ConfirmarPagamentoModal> createState() =>
+      _ConfirmarPagamentoModalState();
 }
 
 class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
@@ -31,7 +32,6 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
             final data = controller.dataSelecionada;
             final horario = controller.horarioSelecionado;
             final valorTotal = controller.valorTotal;
-            final isPreReserva = percentualPagoSelecionado == 50;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -56,7 +56,7 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
 
                 // Informações da reserva
@@ -70,8 +70,10 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
                           '${data.year} às ${horario.horaFormatada}'
                       : '',
                 ),
-                _buildInfoRow('Duração:', _formatarDuracao(controller.duracaoMinutos)),
-                _buildInfoRow('Valor Total:', 'R\$ ${valorTotal.toStringAsFixed(2)}'),
+                _buildInfoRow(
+                    'Duração:', _formatarDuracao(controller.duracaoMinutos)),
+                _buildInfoRow(
+                    'Valor Total:', 'R\$ ${valorTotal.toStringAsFixed(2)}'),
 
                 const SizedBox(height: 24),
 
@@ -114,37 +116,6 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
                   '100% - R\$ ${valorTotal.toStringAsFixed(2)}',
                   100,
                 ),
-
-                if (isPreReserva) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.warning_amber_rounded,
-                          color: Colors.orange,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Esta pré-reserva expira em 20 minutos. Confirme o pagamento para garantir a reserva.',
-                            style: GoogleFonts.poppins(
-                              color: Colors.orange,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
 
                 if (controller.error != null)
                   Padding(
@@ -200,7 +171,8 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
                               width: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Text(
@@ -261,7 +233,7 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
 
   Widget _buildFormaPagamentoButton(String label, String codigo) {
     final isSelected = formaPagamentoSelecionada == codigo;
-    
+
     return InkWell(
       onTap: () {
         setState(() {
@@ -282,7 +254,9 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
               color: isSelected ? Colors.green : Colors.white38,
               size: 20,
             ),
@@ -302,7 +276,7 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
 
   Widget _buildValorPagamentoButton(String texto, int percentual) {
     final isSelected = percentualPagoSelecionado == percentual;
-    
+
     return InkWell(
       onTap: () {
         setState(() {
@@ -323,7 +297,9 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
               color: isSelected ? Colors.green : Colors.white38,
               size: 20,
             ),
@@ -342,8 +318,8 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
   }
 
   bool _podeConfirmar() {
-    return formaPagamentoSelecionada != null && 
-           percentualPagoSelecionado != null;
+    return formaPagamentoSelecionada != null &&
+        percentualPagoSelecionado != null;
   }
 
   Future<void> _confirmarReserva(
@@ -353,15 +329,15 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
     // Definir os dados de pagamento diretamente no controller ANTES de qualquer operação async
     controller.formaPagamento = formaPagamentoSelecionada;
     controller.percentualPago = percentualPagoSelecionado;
-    
+
     final sucesso = await controller.criarReserva();
-    
+
     if (!mounted) return;
 
     if (sucesso) {
       // Reset do controller antes de fechar
       controller.reset();
-      
+
       // Fechar apenas o modal de confirmação com resultado true
       Navigator.of(context).pop(true);
     } else {
@@ -381,4 +357,3 @@ class _ConfirmarPagamentoModalState extends State<ConfirmarPagamentoModal> {
     }
   }
 }
-
