@@ -2,9 +2,33 @@ import '../api_client.dart';
 
 /// Repository para operações de quadras e reservas
 class QuadraRepository {
-  /// Busca todas as quadras
+  /// Busca todas as quadras (sem paginação) - usado para métricas
   static Future<Map<String, dynamic>> getQuadras() async {
     return await ApiClient.get('/quadras');
+  }
+
+  /// Busca quadras com paginação e filtros
+  static Future<Map<String, dynamic>> buscarQuadras({
+    String? query,
+    bool? ativa,
+    required int page,
+    required int pageSize,
+  }) async {
+    final params = <String, String>{
+      'page': page.toString(),
+      'pageSize': pageSize.toString(),
+    };
+
+    if (query != null && query.isNotEmpty) {
+      params['q'] = query;
+    }
+
+    if (ativa != null) {
+      params['ativa'] = ativa.toString();
+    }
+
+    final queryString = Uri(queryParameters: params).query;
+    return await ApiClient.get('/quadras?$queryString');
   }
 
   /// Busca disponibilidade de uma quadra específica
@@ -20,6 +44,36 @@ class QuadraRepository {
   /// Busca todas as reservas
   static Future<Map<String, dynamic>> getReservas() async {
     return await ApiClient.get('/reservas');
+  }
+
+  /// Cria uma nova quadra
+  static Future<Map<String, dynamic>> criarQuadra({
+    required String nome,
+    required bool ativa,
+  }) async {
+    return await ApiClient.post('/quadras', {
+      'nome': nome,
+      'ativa': ativa,
+    });
+  }
+
+  /// Atualiza dados de uma quadra
+  static Future<Map<String, dynamic>> atualizarQuadra({
+    required int quadraId,
+    required String nome,
+    required bool ativa,
+  }) async {
+    return await ApiClient.put('/quadras/$quadraId', {
+      'nome': nome,
+      'ativa': ativa,
+    });
+  }
+
+  /// Remove uma quadra
+  static Future<Map<String, dynamic>> deletarQuadra({
+    required int quadraId,
+  }) async {
+    return await ApiClient.delete('/quadras/$quadraId');
   }
 
   /// Busca reservas com filtros de data e status
@@ -41,7 +95,8 @@ class QuadraRepository {
   }
 
   /// Cria uma nova reserva
-  static Future<Map<String, dynamic>> criarReserva(Map<String, dynamic> dados) async {
+  static Future<Map<String, dynamic>> criarReserva(
+      Map<String, dynamic> dados) async {
     return await ApiClient.post('/reservas', dados);
   }
 
@@ -58,4 +113,3 @@ class QuadraRepository {
     return await ApiClient.put('/reservas/$reservaId/reagendar', dados);
   }
 }
-

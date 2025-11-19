@@ -7,10 +7,12 @@ import '../features/dashboard/controllers/home_controller.dart';
 import '../features/dashboard/controllers/clientes_controller.dart';
 import '../features/dashboard/controllers/cadastro_acesso_controller.dart';
 import '../features/dashboard/controllers/agendamentos_controller.dart';
+import '../features/dashboard/controllers/quadras_controller.dart';
 import '../features/dashboard/sections/home_section.dart';
 import '../features/dashboard/sections/clientes_section.dart';
 import '../features/dashboard/sections/cadastro_acesso_section.dart';
 import '../features/dashboard/sections/agendamentos_section.dart';
+import '../features/dashboard/sections/quadras_section.dart';
 import '../features/dashboard/widgets/sidebar_item.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -26,6 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late ClientesController _clientesController;
   late CadastroAcessoController _cadastroAcessoController;
   late AgendamentosController _agendamentosController;
+  late QuadrasController _quadrasController;
 
   String _userName = 'Usuário';
   bool _isAdmin = false;
@@ -33,14 +36,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // Inicializar controllers
     _dashboardController = DashboardController();
     _homeController = HomeController();
     _clientesController = ClientesController();
     _cadastroAcessoController = CadastroAcessoController();
     _agendamentosController = AgendamentosController();
+    _quadrasController = QuadrasController();
     _cadastroAcessoController.carregarFuncionarios();
+    _quadrasController.carregarQuadras();
 
     // Carregar dados iniciais
     _carregarNomeUsuario();
@@ -63,7 +68,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _userName = userName;
         _isAdmin = isAdmin;
         // Se não for admin e estiver na seção de cadastro de acesso, redirecionar para início
-        if (!isAdmin && _dashboardController.selectedSection == 'cadastro-acesso') {
+        if (!isAdmin &&
+            _dashboardController.selectedSection == 'cadastro-acesso') {
           _dashboardController.selectSection('inicio');
         }
       });
@@ -79,59 +85,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ChangeNotifierProvider.value(value: _clientesController),
         ChangeNotifierProvider.value(value: _cadastroAcessoController),
         ChangeNotifierProvider.value(value: _agendamentosController),
+        ChangeNotifierProvider.value(value: _quadrasController),
       ],
       child: Scaffold(
         backgroundColor: const Color(0xFF0F1419),
-      body: Row(
-        children: [
-          // Sidebar
-          Container(
-            width: 280,
+        body: Row(
+          children: [
+            // Sidebar
+            Container(
+              width: 280,
               decoration: const BoxDecoration(
                 color: Color(0xFF1B1E21),
                 border: Border(
                   right: BorderSide(color: Colors.white10, width: 1),
                 ),
               ),
-                        child: Column(
-                          children: [
+              child: Column(
+                children: [
                   // Logo e header
                   Container(
                     padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                          Image.asset(
-                            'assets/images/Logo.png',
+                    child: Column(
+                      children: [
+                        Image.asset(
+                          'assets/images/Logo.png',
                           height: 60,
                           width: 60,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            Text(
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
                           'Pinheiro Society',
-                                              style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
                           'Bem-vindo, $_userName',
-                                              style: GoogleFonts.poppins(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                ),
+                          style: GoogleFonts.poppins(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                   // Menu items
-                    Expanded(
-                      child: Padding(
+                  Expanded(
+                    child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          children: [
+                      child: Column(
+                        children: [
                           // Alerta de estoque baixo na sidebar
                           Consumer<HomeController>(
                             builder: (context, homeController, child) {
@@ -139,41 +146,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
                                   padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                    color: const Color(0xFFFFA726).withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFA726)
+                                        .withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: const Color(0xFFFFA726),
                                       width: 1,
                                     ),
                                   ),
                                   child: Row(
-                                  children: [
+                                    children: [
                                       const Icon(
                                         Icons.warning_amber_rounded,
                                         color: Color(0xFFFFA726),
                                         size: 20,
                                       ),
                                       const SizedBox(width: 8),
-                                    Expanded(
+                                      Expanded(
                                         child: Text(
                                           '${homeController.alertasEstoqueBaixo} ${homeController.alertasEstoqueBaixo == 1 ? 'item com' : 'itens com'}\nestoque baixo',
-                                      style: GoogleFonts.poppins(
+                                          style: GoogleFonts.poppins(
                                             color: const Color(0xFFFFA726),
                                             fontSize: 12,
                                             fontWeight: FontWeight.w500,
                                             height: 1.3,
                                           ),
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
+                                    ],
+                                  ),
                                 );
                               }
                               return const SizedBox.shrink();
                             },
                           ),
-                          
+
                           Consumer<DashboardController>(
                             builder: (context, dashboardController, child) {
                               return Column(
@@ -181,18 +189,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   SidebarItem(
                                     icon: Icons.home_outlined,
                                     label: 'Início',
-                                    selected: dashboardController.selectedSection == 'inicio',
+                                    selected:
+                                        dashboardController.selectedSection ==
+                                            'inicio',
                                     onTap: () {
-                                      dashboardController.selectSection('inicio');
+                                      dashboardController
+                                          .selectSection('inicio');
                                       _homeController.carregarDados();
                                     },
                                   ),
                                   SidebarItem(
                                     icon: Icons.people_outline,
                                     label: 'Clientes',
-                                    selected: dashboardController.selectedSection == 'clientes',
+                                    selected:
+                                        dashboardController.selectedSection ==
+                                            'clientes',
                                     onTap: () {
-                                      dashboardController.selectSection('clientes');
+                                      dashboardController
+                                          .selectSection('clientes');
                                       _clientesController.carregarClientes();
                                     },
                                   ),
@@ -200,38 +214,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     icon: Icons.sports_tennis,
                                     label: 'Agendamentos',
                                     badge: _homeController.reservasHoje,
-                                    selected: dashboardController.selectedSection == 'agendamentos',
+                                    selected:
+                                        dashboardController.selectedSection ==
+                                            'agendamentos',
                                     onTap: () {
-                                      dashboardController.selectSection('agendamentos');
-                                      _agendamentosController.carregarDadosAgendamentos();
+                                      dashboardController
+                                          .selectSection('agendamentos');
+                                      _agendamentosController
+                                          .carregarDadosAgendamentos();
+                                    },
+                                  ),
+                                  SidebarItem(
+                                    icon: Icons.sports,
+                                    label: 'Quadras',
+                                    selected:
+                                        dashboardController.selectedSection ==
+                                            'quadras',
+                                    onTap: () {
+                                      dashboardController
+                                          .selectSection('quadras');
+                                      _quadrasController.carregarQuadras();
                                     },
                                   ),
                                   if (_isAdmin) ...[
-                                        const SizedBox(height: 8),
+                                    const SizedBox(height: 8),
                                     SidebarItem(
                                       icon: Icons.person_add_alt_1,
                                       label: 'Cadastro de Acesso',
-                                      selected: dashboardController.selectedSection == 'cadastro-acesso',
+                                      selected:
+                                          dashboardController.selectedSection ==
+                                              'cadastro-acesso',
                                       onTap: () {
-                                        dashboardController.selectSection('cadastro-acesso');
-                                      _cadastroAcessoController.carregarFuncionarios();
+                                        dashboardController
+                                            .selectSection('cadastro-acesso');
+                                        _cadastroAcessoController
+                                            .carregarFuncionarios();
                                       },
                                     ),
                                   ],
                                 ],
                               );
                             },
-                                  ),
-                                ],
-                              ),
-                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  
+
                   // Logout button
                   Padding(
-                                padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     child: SizedBox(
-                              width: double.infinity,
+                      width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: _logout,
                         icon: const Icon(Icons.logout),
@@ -241,15 +275,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             // Main content
-        Expanded(
+            Expanded(
               child: Consumer<DashboardController>(
                 builder: (context, dashboardController, child) {
                   switch (dashboardController.selectedSection) {
@@ -258,23 +292,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     case 'clientes':
                       return ClientesSection(controller: _clientesController);
                     case 'cadastro-acesso':
-                      return _isAdmin 
-                          ? CadastroAcessoSection(controller: _cadastroAcessoController)
+                      return _isAdmin
+                          ? CadastroAcessoSection(
+                              controller: _cadastroAcessoController)
                           : const Center(
-          child: Text(
+                              child: Text(
                                 'Acesso negado',
                                 style: TextStyle(color: Colors.white),
                               ),
                             );
                     case 'agendamentos':
-                      return AgendamentosSection(controller: _agendamentosController);
+                      return AgendamentosSection(
+                          controller: _agendamentosController);
+                    case 'quadras':
+                      return QuadrasSection(controller: _quadrasController);
                     default:
                       return HomeSection(controller: _homeController);
                   }
                 },
-                    ),
-                  ),
-                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -294,6 +332,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _clientesController.dispose();
     _cadastroAcessoController.dispose();
     _agendamentosController.dispose();
+    _quadrasController.dispose();
     super.dispose();
   }
 }
