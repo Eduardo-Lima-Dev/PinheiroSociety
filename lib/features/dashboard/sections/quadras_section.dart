@@ -235,18 +235,20 @@ class QuadrasSection extends StatelessWidget {
   }
 
   Widget _buildPaginationFooter(QuadrasController controller) {
-    final semResultados = controller.totalRegistros == 0;
-    final start = semResultados
-        ? 0
-        : ((controller.paginaAtual - 1) * controller.pageSize) + 1;
-    final end = semResultados
-        ? 0
-        : (start + controller.quadras.length - 1)
-            .clamp(0, controller.totalRegistros);
     final total = controller.totalRegistros;
+    final semResultados = total == 0 || controller.quadras.isEmpty;
+    int start = 0;
+    int end = 0;
+
+    if (!semResultados) {
+      start = ((controller.paginaAtual - 1) * controller.pageSize) + 1;
+      if (start > total) start = total;
+      end = start + controller.quadras.length - 1;
+      if (end > total) end = total;
+    }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -261,40 +263,6 @@ class QuadrasSection extends StatelessWidget {
           ),
           Row(
             children: [
-              SizedBox(
-                width: 100,
-                child: DropdownButtonFormField<int>(
-                  value: controller.pageSize,
-                  dropdownColor: const Color(0xFF1B1E21),
-                  icon:
-                      const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                  decoration: InputDecoration(
-                    labelText: 'Por página',
-                    labelStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: const Color(0xFF1B1E21),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  ),
-                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 12),
-                  items: controller.pageSizeOptions.map((size) {
-                    return DropdownMenuItem<int>(
-                      value: size,
-                      child: Text(size.toString()),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      controller.atualizarPageSize(value);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
               IconButton(
                 icon: const Icon(Icons.chevron_left, color: Colors.white70),
                 splashRadius: 20,
@@ -316,6 +284,46 @@ class QuadrasSection extends StatelessWidget {
                 onPressed: controller.paginaAtual < controller.totalPaginas
                     ? controller.proximaPagina
                     : null,
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Text(
+                'Por página:',
+                style: GoogleFonts.poppins(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B1E21),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: controller.pageSize,
+                    dropdownColor: const Color(0xFF1B1E21),
+                    style: GoogleFonts.poppins(color: Colors.white),
+                    items: controller.pageSizeOptions
+                        .map(
+                          (size) => DropdownMenuItem<int>(
+                            value: size,
+                            child: Text('$size'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        controller.atualizarPageSize(value);
+                      }
+                    },
+                  ),
+                ),
               ),
             ],
           ),
