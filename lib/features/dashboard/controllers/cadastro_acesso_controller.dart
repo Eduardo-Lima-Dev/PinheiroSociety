@@ -38,10 +38,12 @@ class CadastroAcessoController extends ChangeNotifier {
   int totalAtivos = 0;
   int totalInativos = 0;
 
-  final int pageSize = 10;
+  int pageSize = 10;
   int paginaAtual = 1;
   int totalPaginas = 1;
   int totalRegistros = 0;
+
+  final List<int> pageSizeOptions = [10, 20, 30, 50];
 
   final List<Map<String, String>> rolesDisponiveis = [
     {'value': 'USER', 'label': 'Funcionário'},
@@ -150,16 +152,38 @@ class CadastroAcessoController extends ChangeNotifier {
         final lista = _extrairUsuarios(data);
 
         if (lista != null) {
-          funcionarios = lista.map(UserAccess.fromMap).toList();
+          final bool paginacaoLocal = data is List;
 
-          totalRegistros = _extrairTotalRegistros(data) ?? funcionarios.length;
-          totalPaginas = totalRegistros == 0
-              ? 1
-              : ((totalRegistros + pageSize - 1) ~/ pageSize);
+          if (paginacaoLocal) {
+            totalRegistros = lista.length;
+            totalPaginas = totalRegistros == 0
+                ? 1
+                : ((totalRegistros + pageSize - 1) ~/ pageSize);
 
-          final paginaMeta = _extrairPaginaAtual(data);
-          if (paginaMeta != null && paginaMeta >= 1) {
-            paginaAtual = paginaMeta;
+            if (paginaAtual > totalPaginas) {
+              paginaAtual = totalPaginas;
+            }
+
+            final inicio = (paginaAtual - 1) * pageSize;
+            final paginaItens = lista
+                .skip(inicio)
+                .take(pageSize)
+                .map(UserAccess.fromMap)
+                .toList();
+            funcionarios = paginaItens;
+          } else {
+            funcionarios = lista.map(UserAccess.fromMap).toList();
+
+            totalRegistros =
+                _extrairTotalRegistros(data) ?? funcionarios.length;
+            totalPaginas = totalRegistros == 0
+                ? 1
+                : ((totalRegistros + pageSize - 1) ~/ pageSize);
+
+            final paginaMeta = _extrairPaginaAtual(data);
+            if (paginaMeta != null && paginaMeta >= 1) {
+              paginaAtual = paginaMeta;
+            }
           }
         } else {
           funcionarios = [];
@@ -213,6 +237,14 @@ class CadastroAcessoController extends ChangeNotifier {
     if (paginaAtual <= 1) return;
     paginaAtual -= 1;
     buscarUsuarios();
+  }
+
+  void atualizarPageSize(int novoTamanho) {
+    if (novoTamanho == pageSize) return;
+    pageSize = novoTamanho;
+    paginaAtual = 1;
+    buscarUsuarios(resetPage: true);
+    notifyListeners();
   }
 
   Future<bool> salvarCadastroAcesso() async {

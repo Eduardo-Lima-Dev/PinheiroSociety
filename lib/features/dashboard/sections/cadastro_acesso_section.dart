@@ -91,6 +91,46 @@ class CadastroAcessoSection extends StatelessWidget {
               ),
             ],
           ),
+          Row(
+            children: [
+              Text(
+                'Por página:',
+                style: GoogleFonts.poppins(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B1E21),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: controller.pageSize,
+                    dropdownColor: const Color(0xFF1B1E21),
+                    style: GoogleFonts.poppins(color: Colors.white),
+                    items: controller.pageSizeOptions
+                        .map(
+                          (size) => DropdownMenuItem<int>(
+                            value: size,
+                            child: Text('$size'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        controller.atualizarPageSize(value);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
