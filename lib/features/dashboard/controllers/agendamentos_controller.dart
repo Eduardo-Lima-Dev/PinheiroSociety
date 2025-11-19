@@ -87,9 +87,21 @@ class AgendamentosController extends ChangeNotifier {
       // Carregar quadras
       final quadrasResp = await QuadraRepository.getQuadras();
       if (quadrasResp['success'] == true) {
-        quadras = List<Map<String, dynamic>>.from(quadrasResp['data'] ?? [])
-            .where((q) => q['ativa'] == true)
-            .toList();
+        final quadrasData = quadrasResp['data'];
+        List<Map<String, dynamic>> listaQuadras = [];
+
+        if (quadrasData is List) {
+          listaQuadras = List<Map<String, dynamic>>.from(quadrasData);
+        } else if (quadrasData is Map<String, dynamic>) {
+          final lista = quadrasData['data'] ??
+              quadrasData['items'] ??
+              quadrasData['quadras'];
+          if (lista is List) {
+            listaQuadras = List<Map<String, dynamic>>.from(lista);
+          }
+        }
+
+        quadras = listaQuadras.where((q) => q['ativa'] == true).toList();
       }
 
       // Carregar todas as reservas do dia (sem filtro de status)
@@ -109,7 +121,8 @@ class AgendamentosController extends ChangeNotifier {
             'DEBUG: Carregadas ${reservas.length} reservas para $dataFormatada');
         if (reservas.isNotEmpty) {
           print('DEBUG: Primeira reserva: ${reservas[0]}');
-          print('DEBUG: Campo duracaoMinutos da primeira reserva: ${reservas[0]['duracaoMinutos']}');
+          print(
+              'DEBUG: Campo duracaoMinutos da primeira reserva: ${reservas[0]['duracaoMinutos']}');
         }
       }
 
@@ -209,19 +222,22 @@ class AgendamentosController extends ChangeNotifier {
         final reserva = reservas.firstWhere(
           (r) {
             if (r['quadraId'] != quadraId) return false;
-            
+
             final horaInicio = r['hora'] as int;
             final duracaoMinutos = r['duracaoMinutos'] as int? ?? 60;
-            final horasDuracao = (duracaoMinutos / 60).ceil(); // Quantas horas ocupa
-            
+            final horasDuracao =
+                (duracaoMinutos / 60).ceil(); // Quantas horas ocupa
+
             // Log para debug de todas as reservas desta quadra
             if (horaInt == horaInicio) {
-              print('DEBUG: Reserva encontrada - Quadra: $quadraId, Hora início: $horaInicio, duracaoMinutos do JSON: ${r['duracaoMinutos']}, duracaoMinutos calculado: $duracaoMinutos, horasDuracao: $horasDuracao');
+              print(
+                  'DEBUG: Reserva encontrada - Quadra: $quadraId, Hora início: $horaInicio, duracaoMinutos do JSON: ${r['duracaoMinutos']}, duracaoMinutos calculado: $duracaoMinutos, horasDuracao: $horasDuracao');
             }
-            
+
             // Verifica se o horário atual está dentro do range da reserva
-            final ocupaEsteHorario = horaInt >= horaInicio && horaInt < (horaInicio + horasDuracao);
-            
+            final ocupaEsteHorario =
+                horaInt >= horaInicio && horaInt < (horaInicio + horasDuracao);
+
             if (ocupaEsteHorario) {
               print(
                   'DEBUG: Match encontrado - Quadra: $quadraId, Hora: $horaInt, Início: $horaInicio, Duração: ${duracaoMinutos}min (${horasDuracao}h), StatusPagamento: ${r['statusPagamento']}, Percentual: ${r['percentualPago']}');

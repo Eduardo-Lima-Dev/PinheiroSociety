@@ -11,7 +11,7 @@ class NovaReservaController extends ChangeNotifier {
   // Modo de edição (reagendamento)
   bool _modoEdicao = false;
   int? _reservaIdParaReagendar;
-  
+
   bool get modoEdicao => _modoEdicao;
   int? get reservaIdParaReagendar => _reservaIdParaReagendar;
 
@@ -50,9 +50,21 @@ class NovaReservaController extends ChangeNotifier {
       print(
           'DEBUG: Resposta quadras: ${quadrasResp['success']}, Dados: ${quadrasResp['data']}');
       if (quadrasResp['success'] == true) {
-        quadras = List<Map<String, dynamic>>.from(quadrasResp['data'] ?? [])
-            .where((q) => q['ativa'] == true)
-            .toList();
+        final quadrasData = quadrasResp['data'];
+        List<Map<String, dynamic>> listaQuadras = [];
+
+        if (quadrasData is List) {
+          listaQuadras = List<Map<String, dynamic>>.from(quadrasData);
+        } else if (quadrasData is Map<String, dynamic>) {
+          final lista = quadrasData['data'] ??
+              quadrasData['items'] ??
+              quadrasData['quadras'];
+          if (lista is List) {
+            listaQuadras = List<Map<String, dynamic>>.from(lista);
+          }
+        }
+
+        quadras = listaQuadras.where((q) => q['ativa'] == true).toList();
         print('DEBUG: ${quadras.length} quadras carregadas');
       }
 
@@ -66,11 +78,24 @@ class NovaReservaController extends ChangeNotifier {
         final clientesData = clientesResp['data'];
         print('DEBUG: clientesData: $clientesData');
 
+        List<dynamic> listaClientes = [];
+
         if (clientesData is List) {
+          listaClientes = clientesData;
+        } else if (clientesData is Map<String, dynamic>) {
+          final lista = clientesData['data'] ??
+              clientesData['items'] ??
+              clientesData['clientes'];
+          if (lista is List) {
+            listaClientes = lista;
+          }
+        }
+
+        if (listaClientes.isNotEmpty) {
           print(
-              'DEBUG: clientesData é uma lista com ${clientesData.length} itens');
+              'DEBUG: clientesData é uma lista com ${listaClientes.length} itens');
           try {
-            clientes = clientesData.map((c) {
+            clientes = listaClientes.map((c) {
               print('DEBUG: Convertendo cliente: $c');
               return Cliente.fromJson(c as Map<String, dynamic>);
             }).toList();
@@ -83,8 +108,7 @@ class NovaReservaController extends ChangeNotifier {
             setError('Erro ao processar clientes: $e');
           }
         } else {
-          print(
-              'ERROR: clientesData não é uma lista: ${clientesData.runtimeType}');
+          print('DEBUG: Nenhum cliente encontrado na resposta');
         }
       } else {
         print(
@@ -120,8 +144,10 @@ class NovaReservaController extends ChangeNotifier {
       if (response['success'] == true) {
         disponibilidade = DisponibilidadeQuadra.fromJson(
             response['data'] as Map<String, dynamic>);
-        print('DEBUG: Disponibilidade carregada: ${disponibilidade?.horarios.length} horários');
-        print('DEBUG: Horários disponíveis filtrados: ${horariosDisponiveisFiltrados.length}');
+        print(
+            'DEBUG: Disponibilidade carregada: ${disponibilidade?.horarios.length} horários');
+        print(
+            'DEBUG: Horários disponíveis filtrados: ${horariosDisponiveisFiltrados.length}');
       } else {
         setError('Erro ao carregar disponibilidade');
       }
@@ -163,16 +189,15 @@ class NovaReservaController extends ChangeNotifier {
   /// Inicializa o controller em modo de edição (reagendamento)
   Future<void> inicializarModoEdicao(Reserva reserva) async {
     if (_disposed) return;
-    
+
     _modoEdicao = true;
     _reservaIdParaReagendar = reserva.id;
-    
+
     // Preencher dados da reserva existente
-    clienteSelecionado = reserva.cliente != null 
-        ? Cliente.fromJson(reserva.cliente!) 
-        : null;
+    clienteSelecionado =
+        reserva.cliente != null ? Cliente.fromJson(reserva.cliente!) : null;
     quadraSelecionada = reserva.quadra;
-    
+
     // Parse da data
     try {
       // Remove timestamp se houver (2025-11-04T12:00:00 -> 2025-11-04)
@@ -188,7 +213,7 @@ class NovaReservaController extends ChangeNotifier {
     } catch (e) {
       print('ERROR: Erro ao parsear data: $e');
     }
-    
+
     // Criar HorarioDisponivel temporário com os dados da reserva
     horarioSelecionado = HorarioDisponivel(
       hora: reserva.hora,
@@ -196,11 +221,11 @@ class NovaReservaController extends ChangeNotifier {
       precoCents: reserva.precoCents,
       precoReais: reserva.precoReais,
     );
-    
+
     isClienteFixo = reserva.recorrente;
-    
+
     notifyListeners();
-    
+
     // Carregar dados iniciais após preencher
     await carregarDadosIniciais();
   }
@@ -268,7 +293,8 @@ class NovaReservaController extends ChangeNotifier {
 
       print('DEBUG: Resposta da API: $response');
       if (response['success'] == true && response['data'] != null) {
-        print('DEBUG: Duração retornada pela API: ${response['data']['duracaoMinutos']}');
+        print(
+            'DEBUG: Duração retornada pela API: ${response['data']['duracaoMinutos']}');
       }
 
       if (response['success'] == true) {
@@ -307,7 +333,8 @@ class NovaReservaController extends ChangeNotifier {
         'observacoes': 'Reagendamento solicitado',
       };
 
-      print('DEBUG: Reagendando reserva ${_reservaIdParaReagendar} com dados: $dados');
+      print(
+          'DEBUG: Reagendando reserva ${_reservaIdParaReagendar} com dados: $dados');
 
       final response = await QuadraRepository.reagendarReserva(
         reservaId: _reservaIdParaReagendar!,
@@ -319,8 +346,9 @@ class NovaReservaController extends ChangeNotifier {
       if (response['success'] == true) {
         return true;
       } else {
-        final errorMsg =
-            response['error'] ?? response['message'] ?? 'Erro ao reagendar reserva';
+        final errorMsg = response['error'] ??
+            response['message'] ??
+            'Erro ao reagendar reserva';
         setError(errorMsg);
         print('ERROR: $errorMsg');
         return false;
@@ -366,12 +394,12 @@ class NovaReservaController extends ChangeNotifier {
 
   double get valorTotal {
     if (horarioSelecionado == null) return 0.0;
-    
+
     // Calcular valor proporcional baseado na duração
     // Preço base é para 60 minutos, então multiplicamos pela proporção
     final precoBase = horarioSelecionado!.precoReais;
     final proporcaoDuracao = duracaoMinutos / 60.0;
-    
+
     return precoBase * proporcaoDuracao;
   }
 

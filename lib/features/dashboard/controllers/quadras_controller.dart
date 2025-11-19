@@ -94,38 +94,21 @@ class QuadrasController extends ChangeNotifier {
       );
 
       if (result['success'] == true) {
-        final data = result['data'];
-        final lista = _extrairQuadras(data);
+        final responseData = result['data'];
+        final lista = _extrairQuadras(responseData);
 
         if (lista != null) {
-          final bool paginacaoLocal = data is List;
+          quadras = lista.map(Quadra.fromMap).toList();
 
-          if (paginacaoLocal) {
-            totalRegistros = lista.length;
-            totalPaginas = totalRegistros == 0
-                ? 1
-                : ((totalRegistros + pageSize - 1) ~/ pageSize);
+          totalRegistros =
+              _extrairTotalRegistros(responseData) ?? quadras.length;
+          totalPaginas = totalRegistros == 0
+              ? 1
+              : ((totalRegistros + pageSize - 1) ~/ pageSize);
 
-            if (paginaAtual > totalPaginas) {
-              paginaAtual = totalPaginas;
-            }
-
-            final inicio = (paginaAtual - 1) * pageSize;
-            final paginaItens =
-                lista.skip(inicio).take(pageSize).map(Quadra.fromMap).toList();
-            quadras = paginaItens;
-          } else {
-            quadras = lista.map(Quadra.fromMap).toList();
-
-            totalRegistros = _extrairTotalRegistros(data) ?? quadras.length;
-            totalPaginas = totalRegistros == 0
-                ? 1
-                : ((totalRegistros + pageSize - 1) ~/ pageSize);
-
-            final paginaMeta = _extrairPaginaAtual(data);
-            if (paginaMeta != null && paginaMeta >= 1) {
-              paginaAtual = paginaMeta;
-            }
+          final paginaMeta = _extrairPaginaAtual(responseData);
+          if (paginaMeta != null && paginaMeta >= 1) {
+            paginaAtual = paginaMeta;
           }
         } else {
           quadras = [];

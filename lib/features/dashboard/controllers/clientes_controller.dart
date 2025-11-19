@@ -51,9 +51,9 @@ class ClientesController extends ChangeNotifier {
     } else {
       clientesFiltrados = clientes.where((cliente) {
         return cliente.nomeCompleto.toLowerCase().contains(query) ||
-               cliente.email.toLowerCase().contains(query) ||
-               cliente.cpf.contains(query) ||
-               cliente.telefone.contains(query);
+            cliente.email.toLowerCase().contains(query) ||
+            cliente.cpf.contains(query) ||
+            cliente.telefone.contains(query);
       }).toList();
     }
     notifyListeners();
@@ -66,9 +66,23 @@ class ClientesController extends ChangeNotifier {
     try {
       final response = await ClienteRepository.getClientes();
       if (response['success'] == true) {
-        final data = response['data'];
-        if (data is List) {
-          clientes = data.map((item) => Cliente.fromJson(item)).toList();
+        final responseData = response['data'];
+
+        // Se a resposta é uma lista direta
+        if (responseData is List) {
+          clientes =
+              responseData.map((item) => Cliente.fromJson(item)).toList();
+        }
+        // Se a resposta tem estrutura {data: [...], pagination: {...}}
+        else if (responseData is Map<String, dynamic>) {
+          final lista = responseData['data'] ??
+              responseData['items'] ??
+              responseData['clientes'];
+          if (lista is List) {
+            clientes = lista.map((item) => Cliente.fromJson(item)).toList();
+          } else {
+            clientes = [];
+          }
         } else {
           clientes = [];
         }
@@ -144,7 +158,7 @@ class ClientesController extends ChangeNotifier {
   void abrirModalCliente({Cliente? cliente}) {
     isEditing = cliente != null;
     clienteEditando = cliente;
-    
+
     if (isEditing && cliente != null) {
       nomeController.text = cliente.nomeCompleto;
       emailController.text = cliente.email;
