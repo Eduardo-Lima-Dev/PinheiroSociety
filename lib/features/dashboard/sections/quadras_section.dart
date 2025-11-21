@@ -455,6 +455,88 @@ class QuadrasSection extends StatelessWidget {
     QuadrasController controller,
     Quadra quadra,
   ) async {
+    final bool vaiInativar = quadra.ativa;
+
+    if (vaiInativar) {
+      final confirmar = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1B1E21),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  height: 32,
+                  width: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFB74D).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFFFB74D),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Inativar quadra',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'Ao inativar esta quadra, ela não estará disponível para novos agendamentos.',
+              style: GoogleFonts.poppins(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+            actionsPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(
+                  'Cancelar',
+                  style: GoogleFonts.poppins(color: Colors.white70),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFB74D),
+                  foregroundColor: Colors.black,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(
+                  'Inativar',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmar != true) {
+        return;
+      }
+    }
+
     final sucesso = await controller.alternarStatus(quadra);
     if (!context.mounted) return;
     if (!sucesso) {

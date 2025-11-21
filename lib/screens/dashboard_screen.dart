@@ -14,6 +14,7 @@ import '../features/dashboard/sections/cadastro_acesso_section.dart';
 import '../features/dashboard/sections/agendamentos_section.dart';
 import '../features/dashboard/sections/quadras_section.dart';
 import '../features/dashboard/sections/estoque_section.dart';
+import '../features/dashboard/sections/relatorios_section.dart';
 import '../features/dashboard/widgets/sidebar_item.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -248,6 +249,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           .selectSection('estoque');
                                     },
                                   ),
+                                  SidebarItem(
+                                    icon: Icons.bar_chart_outlined,
+                                    label: 'Relatórios',
+                                    selected:
+                                        dashboardController.selectedSection ==
+                                            'relatorios',
+                                    onTap: () {
+                                      dashboardController
+                                          .selectSection('relatorios');
+                                    },
+                                  ),
                                   if (_isAdmin) ...[
                                     const SizedBox(height: 8),
                                     SidebarItem(
@@ -320,6 +332,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       return QuadrasSection(controller: _quadrasController);
                     case 'estoque':
                       return const EstoqueSection();
+                    case 'relatorios':
+                      return const RelatoriosSection();
                     default:
                       return HomeSection(controller: _homeController);
                   }
