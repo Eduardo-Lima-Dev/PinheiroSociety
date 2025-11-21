@@ -13,6 +13,7 @@ import '../features/dashboard/sections/clientes_section.dart';
 import '../features/dashboard/sections/cadastro_acesso_section.dart';
 import '../features/dashboard/sections/agendamentos_section.dart';
 import '../features/dashboard/sections/quadras_section.dart';
+import '../features/dashboard/sections/estoque_section.dart';
 import '../features/dashboard/widgets/sidebar_item.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -236,6 +237,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       _quadrasController.carregarQuadras();
                                     },
                                   ),
+                                  SidebarItem(
+                                    icon: Icons.inventory_2_outlined,
+                                    label: 'Estoque',
+                                    selected:
+                                        dashboardController.selectedSection ==
+                                            'estoque',
+                                    onTap: () {
+                                      dashboardController
+                                          .selectSection('estoque');
+                                    },
+                                  ),
                                   if (_isAdmin) ...[
                                     const SizedBox(height: 8),
                                     SidebarItem(
@@ -306,6 +318,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           controller: _agendamentosController);
                     case 'quadras':
                       return QuadrasSection(controller: _quadrasController);
+                    case 'estoque':
+                      return const EstoqueSection();
                     default:
                       return HomeSection(controller: _homeController);
                   }
