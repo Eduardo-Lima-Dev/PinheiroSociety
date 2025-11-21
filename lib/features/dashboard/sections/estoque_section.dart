@@ -14,65 +14,72 @@ class _EstoqueSectionState extends State<EstoqueSection> {
   int _paginaAtual = 1;
   final List<int> _pageSizeOptions = [10, 20, 30, 50];
 
-  final List<_EstoqueAlertaMock> _alertas = const [
-    _EstoqueAlertaMock(
+  final List<_EstoqueAlertaMock> _alertas = [
+    const _EstoqueAlertaMock(
       produto: 'Coca-Cola 2L',
       quantidadeAtual: 5,
       quantidadeMinima: 10,
     ),
-    _EstoqueAlertaMock(
+    const _EstoqueAlertaMock(
       produto: 'Água Mineral',
       quantidadeAtual: 8,
       quantidadeMinima: 15,
     ),
   ];
 
-  final List<_ProdutoEstoqueMock> _produtos = const [
-    _ProdutoEstoqueMock(
+  List<_ProdutoEstoqueMock> _produtos = [
+    const _ProdutoEstoqueMock(
       nome: 'Coca-Cola 2L',
-      categoria: 'Bebida',
+      descricao: 'Refrigerante Coca-Cola garrafa 2 litros',
+      categoria: 'BEBIDA',
       preco: 12.0,
       estoqueAtual: 5,
       estoqueMinimo: 10,
     ),
-    _ProdutoEstoqueMock(
+    const _ProdutoEstoqueMock(
       nome: 'Coca-Cola Lata',
-      categoria: 'Bebida',
+      descricao: 'Refrigerante Coca-Cola lata 350ml',
+      categoria: 'BEBIDA',
       preco: 6.0,
       estoqueAtual: 20,
       estoqueMinimo: 15,
     ),
-    _ProdutoEstoqueMock(
+    const _ProdutoEstoqueMock(
       nome: 'Água Mineral',
-      categoria: 'Bebida',
+      descricao: 'Água mineral sem gás 500ml',
+      categoria: 'BEBIDA',
       preco: 4.0,
       estoqueAtual: 8,
       estoqueMinimo: 15,
     ),
-    _ProdutoEstoqueMock(
+    const _ProdutoEstoqueMock(
       nome: 'Cerveja Heineken',
-      categoria: 'Bebida',
+      descricao: 'Cerveja Heineken long neck 330ml',
+      categoria: 'BEBIDA',
       preco: 10.0,
       estoqueAtual: 30,
       estoqueMinimo: 20,
     ),
-    _ProdutoEstoqueMock(
+    const _ProdutoEstoqueMock(
       nome: 'Suco de Laranja',
-      categoria: 'Bebida',
+      descricao: 'Suco natural de laranja 300ml',
+      categoria: 'BEBIDA',
       preco: 8.0,
       estoqueAtual: 12,
       estoqueMinimo: 10,
     ),
-    _ProdutoEstoqueMock(
+    const _ProdutoEstoqueMock(
       nome: 'Porção de Batata',
-      categoria: 'Alimento',
+      descricao: 'Porção de batata frita crocante',
+      categoria: 'COMIDA',
       preco: 25.0,
       estoqueAtual: 15,
       estoqueMinimo: 5,
     ),
-    _ProdutoEstoqueMock(
+    const _ProdutoEstoqueMock(
       nome: 'Porção de Frango',
-      categoria: 'Alimento',
+      descricao: 'Porção de frango a passarinho',
+      categoria: 'COMIDA',
       preco: 35.0,
       estoqueAtual: 12,
       estoqueMinimo: 5,
@@ -113,6 +120,22 @@ class _EstoqueSectionState extends State<EstoqueSection> {
       motivo: 'Venda mesas',
     ),
   ];
+
+  final _produtoFormKey = GlobalKey<FormState>();
+  final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _descricaoController = TextEditingController();
+  final TextEditingController _precoController = TextEditingController();
+  final TextEditingController _quantidadeController = TextEditingController();
+  final TextEditingController _minQuantidadeController =
+      TextEditingController();
+  String _categoriaSelecionada = 'BEBIDA';
+  int? _indiceEditando;
+
+  @override
+  void initState() {
+    super.initState();
+    _atualizarAlertas();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +266,16 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            final produto = _produtos.firstWhere(
+                              (p) => p.nome == a.produto,
+                              orElse: () => _produtos.first,
+                            );
+                            _abrirModalMovimentacao(
+                              produto: produto,
+                              isEntrada: true,
+                            );
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF67F373),
                             foregroundColor: Colors.black,
@@ -270,18 +302,46 @@ class _EstoqueSectionState extends State<EstoqueSection> {
   }
 
   Widget _buildTabs() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF102016),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          _buildTabButton('Produtos', 0),
-          _buildTabButton('Movimentações', 1),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF102016),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                _buildTabButton('Produtos', 0),
+                _buildTabButton('Movimentações', 1),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        ElevatedButton.icon(
+          onPressed: () => _abrirModalProduto(),
+          icon: const Icon(Icons.add, color: Colors.black),
+          label: Text(
+            'Novo Produto',
+            style: GoogleFonts.poppins(
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF67F373),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -397,19 +457,36 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                               _IconButton(
                                 icon: Icons.sync_alt,
                                 tooltip: 'Movimentar estoque',
-                                onTap: () {},
+                                onTap: () {
+                                  _abrirModalMovimentacao(
+                                    produto: p,
+                                    isEntrada: true,
+                                  );
+                                },
                               ),
                               const SizedBox(width: 4),
                               _IconButton(
                                 icon: Icons.edit_outlined,
                                 tooltip: 'Editar produto',
-                                onTap: () {},
+                                onTap: () {
+                                  final globalIndex =
+                                      (_paginaAtual - 1) * _pageSize + index;
+                                  _abrirModalProduto(
+                                    produto: p,
+                                    index: globalIndex,
+                                  );
+                                },
                               ),
                               const SizedBox(width: 4),
                               _IconButton(
                                 icon: Icons.delete_outline,
                                 tooltip: 'Excluir produto',
-                                onTap: () {},
+                                onTap: () {
+                                  _abrirModalMovimentacao(
+                                    produto: p,
+                                    isEntrada: false,
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -557,6 +634,611 @@ class _EstoqueSectionState extends State<EstoqueSection> {
     setState(() {
       _paginaAtual--;
     });
+  }
+
+  void _atualizarAlertas() {
+    _alertas.clear();
+    for (final p in _produtos) {
+      if (p.estoqueAtual <= p.estoqueMinimo) {
+        _alertas.add(
+          _EstoqueAlertaMock(
+            produto: p.nome,
+            quantidadeAtual: p.estoqueAtual,
+            quantidadeMinima: p.estoqueMinimo,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _abrirModalMovimentacao({
+    required _ProdutoEstoqueMock produto,
+    required bool isEntrada,
+  }) async {
+    final formKey = GlobalKey<FormState>();
+    final quantidadeController = TextEditingController();
+    final motivoController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: const Color(0xFF1B1E21),
+          insetPadding: const EdgeInsets.all(32),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isEntrada
+                              ? 'Adicionar Unidades - ${produto.nome}'
+                              : 'Remover Unidades - ${produto.nome}',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Estoque Atual',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Text(
+                        '${produto.estoqueAtual} unidades',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      isEntrada
+                          ? 'Quantidade a Adicionar'
+                          : 'Quantidade a Remover',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: quantidadeController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Ex: 10'),
+                      validator: (value) {
+                        final parsed = int.tryParse(value?.trim() ?? '');
+                        if (parsed == null || parsed <= 0) {
+                          return 'Informe uma quantidade válida';
+                        }
+                        if (!isEntrada && parsed > produto.estoqueAtual) {
+                          return 'Máximo disponível: ${produto.estoqueAtual} unidades';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (!isEntrada) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Máximo disponível: ${produto.estoqueAtual} unidades',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white38,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      'Motivo (opcional)',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: motivoController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration(isEntrada
+                          ? 'Ex: Compra fornecedor, Reposição, etc.'
+                          : 'Ex: Venda, Perda, Ajuste, etc.'),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop();
+                            },
+                            child: Text(
+                              'Cancelar',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (!formKey.currentState!.validate()) return;
+
+                              final qtd =
+                                  int.parse(quantidadeController.text.trim());
+                              int novoEstoque = produto.estoqueAtual;
+                              if (isEntrada) {
+                                novoEstoque += qtd;
+                              } else {
+                                novoEstoque -= qtd;
+                              }
+
+                              setState(() {
+                                final idx = _produtos
+                                    .indexWhere((p) => p.nome == produto.nome);
+                                if (idx != -1) {
+                                  _produtos[idx] = _produtos[idx].copyWith(
+                                    estoqueAtual: novoEstoque,
+                                  );
+                                }
+                                _atualizarAlertas();
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isEntrada
+                                        ? 'Unidades adicionadas com sucesso!'
+                                        : 'Unidades removidas com sucesso!',
+                                  ),
+                                  backgroundColor:
+                                      isEntrada ? Colors.green : Colors.orange,
+                                ),
+                              );
+
+                              Navigator.of(dialogContext).pop();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isEntrada
+                                  ? const Color(0xFF67F373)
+                                  : const Color(0xFFFFB74D),
+                              foregroundColor:
+                                  isEntrada ? Colors.black : Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              isEntrada
+                                  ? 'Adicionar Unidades'
+                                  : 'Remover Unidades',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _abrirModalProduto(
+      {_ProdutoEstoqueMock? produto, int? index}) async {
+    _indiceEditando = index;
+    if (produto != null) {
+      _nomeController.text = produto.nome;
+      _descricaoController.text = produto.descricao;
+      _precoController.text = produto.preco.toStringAsFixed(2);
+      _quantidadeController.text = produto.estoqueAtual.toString();
+      _minQuantidadeController.text = produto.estoqueMinimo.toString();
+      _categoriaSelecionada = produto.categoria;
+    } else {
+      _nomeController.clear();
+      _descricaoController.clear();
+      _precoController.clear();
+      _quantidadeController.clear();
+      _minQuantidadeController.clear();
+      _categoriaSelecionada = 'BEBIDA';
+    }
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final bool isEditando = produto != null;
+        return Dialog(
+          backgroundColor: const Color(0xFF1B1E21),
+          insetPadding: const EdgeInsets.all(32),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _produtoFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isEditando ? 'Editar Produto' : 'Novo Produto',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isEditando
+                          ? 'Atualize as informações do produto'
+                          : 'Preencha os dados para cadastrar um novo produto',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white54,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Nome do produto',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _nomeController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Cerveja Petra 600ml'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Informe o nome do produto';
+                        }
+                        if (value.trim().length < 2) {
+                          return 'O nome deve ter pelo menos 2 caracteres';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Descrição',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _descricaoController,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 2,
+                      decoration:
+                          _inputDecoration('Caldo de carne com farinha'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Informe a descrição do produto';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Categoria',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _categoriaSelecionada,
+                                    dropdownColor: const Color(0xFF1B1E21),
+                                    style: const TextStyle(color: Colors.white),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'BEBIDA',
+                                        child: Text('Bebida'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'COMIDA',
+                                        child: Text('Comida'),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(() {
+                                          _categoriaSelecionada = value;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Preço (R\$)',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _precoController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                style: const TextStyle(color: Colors.white),
+                                decoration:
+                                    _inputDecoration('9,00 ou 9.00').copyWith(
+                                  prefixText: 'R\$ ',
+                                  prefixStyle: const TextStyle(
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Informe o preço';
+                                  }
+                                  final sanitized =
+                                      value.replaceAll(',', '.').trim();
+                                  final parsed = double.tryParse(sanitized);
+                                  if (parsed == null || parsed <= 0) {
+                                    return 'Informe um preço válido';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quantidade em estoque',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _quantidadeController,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: _inputDecoration('5'),
+                                validator: (value) {
+                                  final parsed =
+                                      int.tryParse(value?.trim() ?? '');
+                                  if (parsed == null || parsed < 0) {
+                                    return 'Informe uma quantidade válida';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quantidade mínima',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _minQuantidadeController,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: _inputDecoration('15'),
+                                validator: (value) {
+                                  final parsed =
+                                      int.tryParse(value?.trim() ?? '');
+                                  if (parsed == null || parsed <= 0) {
+                                    return 'Informe uma quantidade mínima';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop();
+                            },
+                            child: Text(
+                              'Cancelar',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (!_produtoFormKey.currentState!.validate()) {
+                                return;
+                              }
+
+                              final precoSanitizado = _precoController.text
+                                  .replaceAll(',', '.')
+                                  .trim();
+                              final preco =
+                                  double.parse(precoSanitizado); // validado
+                              final qtd =
+                                  int.parse(_quantidadeController.text.trim());
+                              final minQtd = int.parse(
+                                  _minQuantidadeController.text.trim());
+
+                              final novoProduto = _ProdutoEstoqueMock(
+                                nome: _nomeController.text.trim(),
+                                descricao: _descricaoController.text.trim(),
+                                categoria: _categoriaSelecionada,
+                                preco: preco,
+                                estoqueAtual: qtd,
+                                estoqueMinimo: minQtd,
+                              );
+
+                              setState(() {
+                                if (_indiceEditando != null &&
+                                    _indiceEditando! >= 0 &&
+                                    _indiceEditando! < _produtos.length) {
+                                  _produtos[_indiceEditando!] = novoProduto;
+                                } else {
+                                  _produtos.add(novoProduto);
+                                }
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    _indiceEditando != null
+                                        ? 'Produto atualizado com sucesso!'
+                                        : 'Produto criado com sucesso!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+
+                              Navigator.of(dialogContext).pop();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF67F373),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Salvar',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.white38),
+      filled: true,
+      fillColor: Colors.white.withOpacity(0.05),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
   }
 
   Widget _buildMovTable() {
@@ -801,6 +1483,7 @@ class _EstoqueAlertaMock {
 
 class _ProdutoEstoqueMock {
   final String nome;
+  final String descricao;
   final String categoria;
   final double preco;
   final int estoqueAtual;
@@ -808,11 +1491,30 @@ class _ProdutoEstoqueMock {
 
   const _ProdutoEstoqueMock({
     required this.nome,
+    required this.descricao,
     required this.categoria,
     required this.preco,
     required this.estoqueAtual,
     required this.estoqueMinimo,
   });
+
+  _ProdutoEstoqueMock copyWith({
+    String? nome,
+    String? descricao,
+    String? categoria,
+    double? preco,
+    int? estoqueAtual,
+    int? estoqueMinimo,
+  }) {
+    return _ProdutoEstoqueMock(
+      nome: nome ?? this.nome,
+      descricao: descricao ?? this.descricao,
+      categoria: categoria ?? this.categoria,
+      preco: preco ?? this.preco,
+      estoqueAtual: estoqueAtual ?? this.estoqueAtual,
+      estoqueMinimo: estoqueMinimo ?? this.estoqueMinimo,
+    );
+  }
 }
 
 class _MovimentacaoEstoqueMock {
