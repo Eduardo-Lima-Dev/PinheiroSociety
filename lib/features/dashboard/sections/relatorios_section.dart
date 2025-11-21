@@ -1,5 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 class RelatoriosSection extends StatefulWidget {
   const RelatoriosSection({super.key});
@@ -10,6 +15,37 @@ class RelatoriosSection extends StatefulWidget {
 
 class _RelatoriosSectionState extends State<RelatoriosSection> {
   int _selectedTab = 0; // 0 = Financeiro, 1 = Reservas, 2 = Bar
+
+  // Mock data usados também na exportação em PDF
+  final List<_LinhaReserva> _topClientes = [
+    _LinhaReserva('Carlos Silva', '12', 'R\$ 1.320'),
+    _LinhaReserva('Maria Santos', '10', 'R\$ 1.100'),
+    _LinhaReserva('João Oliveira', '9', 'R\$ 990'),
+    _LinhaReserva('Ana Costa', '8', 'R\$ 880'),
+    _LinhaReserva('Pedro Alves', '7', 'R\$ 770'),
+  ];
+
+  final List<_LinhaHorario> _horariosMaisReservados = [
+    _LinhaHorario('08:00-12:00', '45', 'R\$ 4.500'),
+    _LinhaHorario('12:00-17:00', '78', 'R\$ 7.800'),
+    _LinhaHorario('17:00-23:00', '201', 'R\$ 22.110'),
+  ];
+
+  final List<_LinhaProdutoBar> _produtosMaisVendidos = [
+    _LinhaProdutoBar('Cerveja Heineken', '156', 'R\$ 1.560', '11,7'),
+    _LinhaProdutoBar('Coca-Cola 2L', '98', 'R\$ 1.176', '8,9'),
+    _LinhaProdutoBar('Porção de Frango', '45', 'R\$ 1.575', '11,9'),
+    _LinhaProdutoBar('Água Mineral', '234', 'R\$ 936', '7,0'),
+    _LinhaProdutoBar('Porção de Batata', '38', 'R\$ 950', '7,2'),
+  ];
+
+  final List<_LinhaMovBar> _movimentacaoEstoqueBar = [
+    _LinhaMovBar('Coca-Cola 2L', '98', '5', 'Baixo'),
+    _LinhaMovBar('Cerveja Heineken', '156', '30', 'OK'),
+    _LinhaMovBar('Água Mineral', '234', '8', 'Baixo'),
+    _LinhaMovBar('Porção de Batata', '38', '15', 'OK'),
+    _LinhaMovBar('Porção de Frango', '45', '12', 'OK'),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +262,7 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      _ExportarButton(onPressed: () {}),
+                      _ExportarButton(onPressed: _exportFinanceiro),
                     ],
                   ),
                 ),
@@ -261,21 +297,134 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
     );
   }
 
+  Future<void> _exportFinanceiro() async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Relatório Financeiro',
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 12),
+              pw.Text('Período: últimos 30 dias'),
+              pw.SizedBox(height: 24),
+              pw.Text(
+                'Resumo',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Bullet(text: 'Receita Total: R\$ 45.680'),
+              pw.Bullet(text: 'Receita Quadras: R\$ 32.400 (70,9%)'),
+              pw.Bullet(text: 'Receita Bar: R\$ 13.280 (29,1%)'),
+              pw.SizedBox(height: 24),
+              pw.Text(
+                'Distribuição de Receita',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Table(
+                border: pw.TableBorder.all(width: 0.5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(3),
+                  1: const pw.FlexColumnWidth(2),
+                  2: const pw.FlexColumnWidth(2),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.black,
+                    ),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(
+                          'Origem',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(
+                          'Valor',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(
+                          'Participação',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Quadras'),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('R\$ 32.400'),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('70,9%'),
+                      ),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Bar'),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('R\$ 13.280'),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('29,1%'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await _salvarPdf('relatorio_financeiro.pdf', doc);
+  }
+
   Widget _buildReservasTab() {
-    final reservas = [
-      _LinhaReserva('Carlos Silva', '12', 'R\$ 1.320'),
-      _LinhaReserva('Maria Santos', '10', 'R\$ 1.100'),
-      _LinhaReserva('João Oliveira', '9', 'R\$ 990'),
-      _LinhaReserva('Ana Costa', '8', 'R\$ 880'),
-      _LinhaReserva('Pedro Alves', '7', 'R\$ 770'),
-    ];
-
-    final horarios = [
-      _LinhaHorario('08:00-12:00', '45', 'R\$ 4.500'),
-      _LinhaHorario('12:00-17:00', '78', 'R\$ 7.800'),
-      _LinhaHorario('17:00-23:00', '201', 'R\$ 22.110'),
-    ];
-
     return Row(
       key: const ValueKey('reservas'),
       children: [
@@ -283,11 +432,12 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
           child: _CardTabela(
             titulo: 'Top Clientes',
             cabecalhos: const ['Cliente', 'Reservas', 'Receita'],
-            linhas: reservas
+            linhas: _topClientes
                 .map(
                   (e) => [e.cliente, e.reservas, e.receita],
                 )
                 .toList(),
+            onExportar: _exportTopClientes,
           ),
         ),
         const SizedBox(width: 16),
@@ -295,46 +445,454 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
           child: _CardTabela(
             titulo: 'Horários Mais Reservados',
             cabecalhos: const ['Horário', 'Reservas', 'Receita'],
-            linhas: horarios
+            linhas: _horariosMaisReservados
                 .map(
                   (e) => [e.horario, e.reservas, e.receita],
                 )
                 .toList(),
+            onExportar: _exportHorarios,
           ),
         ),
       ],
     );
   }
 
+  Future<void> _exportTopClientes() async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Relatório - Top Clientes',
+              style: pw.TextStyle(
+                fontSize: 20,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 12),
+              pw.Table(
+              border: pw.TableBorder.all(width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(4),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(2),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.black,
+                  ),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Cliente',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Reservas',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Receita',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                ..._topClientes.map(
+                  (c) => pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(c.cliente),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(c.reservas),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(c.receita),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await _salvarPdf('relatorio_top_clientes.pdf', doc);
+  }
+
+  Future<void> _exportHorarios() async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Relatório - Horários Mais Reservados',
+              style: pw.TextStyle(
+                fontSize: 20,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 12),
+            pw.Table(
+              border: pw.TableBorder.all(width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(3),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(2),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.black,
+                  ),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Horário',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Reservas',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Receita',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                ..._horariosMaisReservados.map(
+                  (h) => pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(h.horario),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(h.reservas),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(h.receita),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await _salvarPdf('relatorio_horarios_reservados.pdf', doc);
+  }
+
   Widget _buildBarTab() {
-    final produtosMaisVendidos = [
-      _LinhaProdutoBar('Cerveja Heineken', '156', 'R\$ 1.560', '11,7'),
-      _LinhaProdutoBar('Coca-Cola 2L', '98', 'R\$ 1.176', '8,9'),
-      _LinhaProdutoBar('Porção de Frango', '45', 'R\$ 1.575', '11,9'),
-      _LinhaProdutoBar('Água Mineral', '234', 'R\$ 936', '7,0'),
-      _LinhaProdutoBar('Porção de Batata', '38', 'R\$ 950', '7,2'),
-    ];
-
-    final movimentacaoEstoque = [
-      _LinhaMovBar('Coca-Cola 2L', '98', '5', 'Baixo'),
-      _LinhaMovBar('Cerveja Heineken', '156', '30', 'OK'),
-      _LinhaMovBar('Água Mineral', '234', '8', 'Baixo'),
-      _LinhaMovBar('Porção de Batata', '38', '15', 'OK'),
-      _LinhaMovBar('Porção de Frango', '45', '12', 'OK'),
-    ];
-
     return Row(
       key: const ValueKey('bar'),
       children: [
         Expanded(
-          child: _CardTabelaBarProdutos(linhas: produtosMaisVendidos),
+          child: _CardTabelaBarProdutos(
+            linhas: _produtosMaisVendidos,
+            onExportar: _exportProdutosBar,
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _CardTabelaMovEstoque(linhas: movimentacaoEstoque),
+          child: _CardTabelaMovEstoque(
+            linhas: _movimentacaoEstoqueBar,
+            onExportar: _exportMovimentacaoBar,
+          ),
         ),
       ],
     );
+  }
+
+  Future<void> _exportProdutosBar() async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Relatório - Produtos Mais Vendidos (Bar)',
+              style: pw.TextStyle(
+                fontSize: 20,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 12),
+            pw.Table(
+              border: pw.TableBorder.all(width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(4),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(3),
+                3: const pw.FlexColumnWidth(2),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.black,
+                  ),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Produto',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Quantidade',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Receita',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Participação',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                ..._produtosMaisVendidos.map(
+                  (p) => pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(p.produto),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(p.quantidade),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(p.receita),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('${p.participacao}%'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await _salvarPdf('relatorio_produtos_bar.pdf', doc);
+  }
+
+  Future<void> _exportMovimentacaoBar() async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'Relatório - Movimentação de Estoque (Bar)',
+              style: pw.TextStyle(
+                fontSize: 20,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 12),
+            pw.Table(
+              border: pw.TableBorder.all(width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(4),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(2),
+                3: const pw.FlexColumnWidth(2),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.black,
+                  ),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Produto',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Vendidos',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Restante',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Status',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                ..._movimentacaoEstoqueBar.map(
+                  (m) => pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(m.produto),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(m.vendidos),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(m.restante),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(m.status),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await _salvarPdf('relatorio_movimentacao_estoque_bar.pdf', doc);
+  }
+
+  Future<void> _salvarPdf(String nomeArquivo, pw.Document doc) async {
+    try {
+      final dir = Directory('relatorios');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      final file = File('${dir.path}/$nomeArquivo');
+      await file.writeAsBytes(await doc.save());
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'PDF gerado com sucesso em ${dir.path}/$nomeArquivo',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Erro ao gerar PDF: $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 
@@ -604,11 +1162,13 @@ class _CardTabela extends StatelessWidget {
   final String titulo;
   final List<String> cabecalhos;
   final List<List<String>> linhas;
+  final VoidCallback onExportar;
 
   const _CardTabela({
     required this.titulo,
     required this.cabecalhos,
     required this.linhas,
+    required this.onExportar,
   });
 
   @override
@@ -635,7 +1195,7 @@ class _CardTabela extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                _ExportarButton(onPressed: () {}),
+                _ExportarButton(onPressed: onExportar),
               ],
             ),
           ),
@@ -701,8 +1261,12 @@ class _CardTabela extends StatelessWidget {
 
 class _CardTabelaBarProdutos extends StatelessWidget {
   final List<_LinhaProdutoBar> linhas;
+  final VoidCallback onExportar;
 
-  const _CardTabelaBarProdutos({required this.linhas});
+  const _CardTabelaBarProdutos({
+    required this.linhas,
+    required this.onExportar,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -728,7 +1292,7 @@ class _CardTabelaBarProdutos extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                _ExportarButton(onPressed: () {}),
+                _ExportarButton(onPressed: onExportar),
               ],
             ),
           ),
@@ -815,8 +1379,12 @@ class _CardTabelaBarProdutos extends StatelessWidget {
 
 class _CardTabelaMovEstoque extends StatelessWidget {
   final List<_LinhaMovBar> linhas;
+  final VoidCallback onExportar;
 
-  const _CardTabelaMovEstoque({required this.linhas});
+  const _CardTabelaMovEstoque({
+    required this.linhas,
+    required this.onExportar,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -842,7 +1410,7 @@ class _CardTabelaMovEstoque extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                _ExportarButton(onPressed: () {}),
+                _ExportarButton(onPressed: onExportar),
               ],
             ),
           ),
