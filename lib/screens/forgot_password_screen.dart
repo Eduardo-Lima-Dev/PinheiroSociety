@@ -1,70 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/repositories/repositories.dart';
-import '../services/user_storage.dart';
-import 'forgot_password_screen.dart';
+import 'verify_code_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
   bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleForgotPassword() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
 
+      final email = _emailController.text.trim();
+      print('🔵 [FORGOT PASSWORD] Iniciando solicitação para: $email');
+
       try {
-        // Fazer login via API
-        final result = await AuthRepository.login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+        print('🔵 [FORGOT PASSWORD] Chamando AuthRepository.forgotPassword...');
+        final result = await AuthRepository.forgotPassword(
+          email: email,
         );
+
+        print('🟢 [FORGOT PASSWORD] Resultado recebido:');
+        print('   - success: ${result['success']}');
+        print('   - error: ${result['error']}');
+        print('   - data: ${result['data']}');
+        print('   - Resultado completo: $result');
 
         setState(() {
           _isLoading = false;
         });
 
         if (result['success']) {
-          // Salvar dados do usuário
-          final userData = result['data'];
-          if (userData != null) {
-            await UserStorage.saveUserData(userData);
-          }
-
-          // Login bem-sucedido - navegar para o dashboard
-          if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/dashboard');
-          }
-        } else {
-          // Erro no login
+          print('✅ [FORGOT PASSWORD] Sucesso! Email enviado.');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(result['error'] ?? 'Erro no login'),
+                content: Text(
+                  'Email enviado com sucesso! Verifique sua caixa de entrada.',
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Navegar para tela de verificação de código
+            Future.delayed(const Duration(seconds: 1), () {
+              if (mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => VerifyCodeScreen(
+                      email: email,
+                    ),
+                  ),
+                );
+              }
+            });
+          }
+        } else {
+          print('❌ [FORGOT PASSWORD] Erro na resposta: ${result['error']}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result['error'] ?? 'Erro ao enviar email'),
                 backgroundColor: Colors.red,
               ),
             );
           }
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        print('🔴 [FORGOT PASSWORD] Exceção capturada:');
+        print('   - Erro: $e');
+        print('   - Tipo: ${e.runtimeType}');
+        print('   - StackTrace: $stackTrace');
+
         setState(() {
           _isLoading = false;
         });
@@ -83,6 +105,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final containerWidth = isMobile ? screenWidth - 40 : 400.0;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -100,26 +126,38 @@ class _LoginScreenState extends State<LoginScreen> {
           SafeArea(
             child: Column(
               children: [
-                // Header com logo centralizada (sem botão voltar)
+                // Header com logo e botão voltar
                 Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Center(
-                    child: Image.asset(
-                      'assets/images/Logo.png',
-                      height: 60,
-                      fit: BoxFit.contain,
-                    ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Image.asset(
+                            'assets/images/Logo.png',
+                            height: isMobile ? 50 : 60,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48), // Balancear o botão voltar
+                    ],
                   ),
                 ),
 
                 const Spacer(),
 
-                // Formulário de login centralizado
+                // Formulário de esqueci minha senha centralizado
                 Center(
-                  child: Container(
-                    width: 400,
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(30),
+                  child: SingleChildScrollView(
+                    child: Container(
+                      width: containerWidth,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: EdgeInsets.all(isMobile ? 20 : 30),
                     decoration: BoxDecoration(
                       color: Colors.grey[900]!.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(16),
@@ -136,14 +174,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Título Login
+                          // Título
                           Text(
-                            'Login',
+                            'Esqueci minha senha',
                             style: GoogleFonts.poppins(
-                              fontSize: 28,
+                              fontSize: isMobile ? 24 : 28,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
+                          ),
+                          const SizedBox(height: 15),
+                          Text(
+                            'Digite seu email para receber o código de redefinição de senha',
+                            style: GoogleFonts.poppins(
+                              fontSize: isMobile ? 13 : 14,
+                              color: Colors.grey[400],
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 30),
 
@@ -154,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Text(
                                 'Email',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 16,
+                                  fontSize: isMobile ? 14 : 16,
                                   color: Colors.white,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -192,98 +239,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 25),
 
-                          // Campo de Senha
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Senha',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: !_isPasswordVisible,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  hintText: 'senha123',
-                                  hintStyle: TextStyle(color: Colors.grey[400]),
-                                  filled: true,
-                                  fillColor: Colors.grey[800],
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 16,
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _isPasswordVisible
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
-                                      color: Colors.grey[400],
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isPasswordVisible =
-                                            !_isPasswordVisible;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Por favor, insira sua senha';
-                                  }
-                                  if (value.length < 6) {
-                                    return 'A senha deve ter pelo menos 6 caracteres';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Link Esqueci minha senha
-                          Center(
-                            child: TextButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const ForgotPasswordScreen(),
-                                        ),
-                                      );
-                                    },
-                              child: Text(
-                                'Esqueci minha senha',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.green,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 15),
-
-                          // Botão Entrar
+                          // Botão Enviar
                           SizedBox(
                             width: double.infinity,
-                            height: 50,
+                            height: isMobile ? 48 : 50,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
+                              onPressed:
+                                  _isLoading ? null : _handleForgotPassword,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 foregroundColor: Colors.white,
@@ -305,9 +269,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     )
                                   : Text(
-                                      'Entrar',
+                                      'Enviar',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 16,
+                                        fontSize: isMobile ? 14 : 16,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -318,16 +282,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+                ),
 
                 const Spacer(),
 
                 // Footer
                 Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: EdgeInsets.all(isMobile ? 15 : 20.0),
                   child: Text(
                     'Arena Pinheiro Society All Rights Reserved. Privacy Policy | Terms of Service.',
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
+                      fontSize: isMobile ? 10 : 12,
                       color: Colors.white70,
                     ),
                     textAlign: TextAlign.center,
@@ -341,3 +306,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

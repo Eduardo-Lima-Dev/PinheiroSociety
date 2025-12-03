@@ -54,24 +54,43 @@ class ApiClient {
     Map<String, dynamic> body,
   ) async {
     try {
+      final url = '$baseUrl$endpoint';
       final headers = await _getHeaders();
+      final bodyJson = jsonEncode(body);
+      
+      print('🔵 [ApiClient] POST $url');
+      print('🔵 [ApiClient] Headers: $headers');
+      print('🔵 [ApiClient] Body: $bodyJson');
+      
       final response = await http.post(
-        Uri.parse('$baseUrl$endpoint'),
+        Uri.parse(url),
         headers: headers,
-        body: jsonEncode(body),
+        body: bodyJson,
       );
+
+      print('🟢 [ApiClient] Status Code: ${response.statusCode}');
+      print('🟢 [ApiClient] Response Body: ${response.body}');
 
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ [ApiClient] Sucesso na requisição');
         return {'success': true, 'data': responseData};
       }
 
+      print('❌ [ApiClient] Erro na requisição - Status: ${response.statusCode}');
+      print('❌ [ApiClient] Erro message: ${responseData['message']}');
+      
       return {
         'success': false,
         'error': responseData['message'] ?? 'Erro na requisição',
       };
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('🔴 [ApiClient] Exceção na requisição POST:');
+      print('🔴 [ApiClient] Erro: $e');
+      print('🔴 [ApiClient] Tipo: ${e.runtimeType}');
+      print('🔴 [ApiClient] StackTrace: $stackTrace');
+      
       return {
         'success': false,
         'error': 'Erro de conexão: ${e.toString()}',

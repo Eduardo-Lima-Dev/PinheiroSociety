@@ -93,4 +93,51 @@ class AuthRepository {
     }
     return await ApiClient.put('/users/$id', body);
   }
+
+  /// Solicita redefinição de senha via email
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    print('🔵 [AuthRepository] forgotPassword chamado com email: $email');
+    final body = {'email': email};
+    print('🔵 [AuthRepository] Body da requisição: $body');
+    final result = await ApiClient.post('/auth/forgot-password', body);
+    print('🔵 [AuthRepository] Resultado do ApiClient: $result');
+    return result;
+  }
+
+  /// Verifica o código recebido por email e retorna o resetToken
+  static Future<Map<String, dynamic>> verifyCode({
+    required String email,
+    required String code,
+  }) async {
+    print('🔵 [AuthRepository] verifyCode chamado');
+    print('🔵 [AuthRepository] Email: $email');
+    print('🔵 [AuthRepository] Code: $code');
+    final body = {
+      'email': email,
+      'code': code,
+    };
+    print('🔵 [AuthRepository] Body da requisição: $body');
+    final result = await ApiClient.post('/auth/verify-code', body);
+    print('🔵 [AuthRepository] Resultado do ApiClient: $result');
+    return result;
+  }
+
+  /// Redefine a senha usando o resetToken recebido após verificar o código
+  static Future<Map<String, dynamic>> resetPassword({
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    print('🔵 [AuthRepository] resetPassword chamado');
+    print('🔵 [AuthRepository] ResetToken: $resetToken');
+    final body = {
+      'resetToken': resetToken,
+      'newPassword': newPassword,
+    };
+    print('🔵 [AuthRepository] Body da requisição (sem senha): ${body['resetToken']}');
+    final result = await ApiClient.post('/auth/reset-password', body);
+    print('🔵 [AuthRepository] Resultado do ApiClient: $result');
+    return result;
+  }
 }
