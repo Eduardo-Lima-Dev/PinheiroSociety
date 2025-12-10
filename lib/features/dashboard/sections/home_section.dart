@@ -12,6 +12,8 @@ import '../widgets/action_card.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/sales_card.dart';
 import '../widgets/mesa_status_metric_card.dart';
+import '../widgets/venda_avulsa_modal.dart';
+import '../controllers/venda_avulsa_controller.dart';
 
 class HomeSection extends StatelessWidget {
   final HomeController controller;
@@ -105,10 +107,11 @@ class HomeSection extends StatelessWidget {
                         Expanded(
                           child: SalesCard(
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Funcionalidade em desenvolvimento'),
-                                  backgroundColor: Colors.orange,
+                              showDialog(
+                                context: context,
+                                builder: (context) => ChangeNotifierProvider(
+                                  create: (_) => VendaAvulsaController(),
+                                  child: const VendaAvulsaModal(),
                                 ),
                               );
                             },
@@ -244,10 +247,11 @@ class HomeSection extends StatelessWidget {
                         Expanded(
                           child: SalesCard(
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Funcionalidade em desenvolvimento'),
-                                  backgroundColor: Colors.orange,
+                              showDialog(
+                                context: context,
+                                builder: (context) => ChangeNotifierProvider(
+                                  create: (_) => VendaAvulsaController(),
+                                  child: const VendaAvulsaModal(),
                                 ),
                               );
                             },

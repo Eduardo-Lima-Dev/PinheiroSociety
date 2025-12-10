@@ -8,11 +8,13 @@ import '../features/dashboard/controllers/clientes_controller.dart';
 import '../features/dashboard/controllers/cadastro_acesso_controller.dart';
 import '../features/dashboard/controllers/agendamentos_controller.dart';
 import '../features/dashboard/controllers/quadras_controller.dart';
+import '../features/dashboard/controllers/mesas_controller.dart';
 import '../features/dashboard/sections/home_section.dart';
 import '../features/dashboard/sections/clientes_section.dart';
 import '../features/dashboard/sections/cadastro_acesso_section.dart';
 import '../features/dashboard/sections/agendamentos_section.dart';
 import '../features/dashboard/sections/quadras_section.dart';
+import '../features/dashboard/sections/mesas_section.dart';
 import '../features/dashboard/sections/estoque_section.dart';
 import '../features/dashboard/sections/relatorios_section.dart';
 import '../features/dashboard/widgets/sidebar_item.dart';
@@ -31,6 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late CadastroAcessoController _cadastroAcessoController;
   late AgendamentosController _agendamentosController;
   late QuadrasController _quadrasController;
+  late MesasController _mesasController;
 
   String _userName = 'Usuário';
   bool _isAdmin = false;
@@ -46,8 +49,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _cadastroAcessoController = CadastroAcessoController();
     _agendamentosController = AgendamentosController();
     _quadrasController = QuadrasController();
+    _mesasController = MesasController();
     _cadastroAcessoController.carregarFuncionarios();
     _quadrasController.carregarQuadras();
+    _mesasController.carregarMesas();
 
     // Carregar dados iniciais
     _carregarNomeUsuario();
@@ -88,6 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ChangeNotifierProvider.value(value: _cadastroAcessoController),
         ChangeNotifierProvider.value(value: _agendamentosController),
         ChangeNotifierProvider.value(value: _quadrasController),
+        ChangeNotifierProvider.value(value: _mesasController),
       ],
       child: Scaffold(
         backgroundColor: const Color(0xFF0F1419),
@@ -227,6 +233,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     },
                                   ),
                                   SidebarItem(
+                                    icon: Icons.table_restaurant,
+                                    label: 'Mesas',
+                                    selected:
+                                        dashboardController.selectedSection ==
+                                            'mesas',
+                                    onTap: () {
+                                      dashboardController
+                                          .selectSection('mesas');
+                                      _mesasController.carregarMesas();
+                                    },
+                                  ),
+                                  SidebarItem(
                                     icon: Icons.sports,
                                     label: 'Quadras',
                                     selected:
@@ -328,6 +346,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     case 'agendamentos':
                       return AgendamentosSection(
                           controller: _agendamentosController);
+                    case 'mesas':
+                      return MesasSection(controller: _mesasController);
                     case 'quadras':
                       return QuadrasSection(controller: _quadrasController);
                     case 'estoque':
