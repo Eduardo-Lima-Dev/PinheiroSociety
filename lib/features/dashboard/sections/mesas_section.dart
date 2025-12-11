@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../controllers/mesas_controller.dart';
 import '../models/mesa_aberta.dart';
+import '../models/cliente.dart';
+import '../widgets/comanda_mesa_modal.dart';
+import '../../../services/repositories/cliente_repository.dart';
 
 class MesasSection extends StatelessWidget {
   final MesasController controller;
@@ -162,7 +165,7 @@ class MesasSection extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         if (isOcupada) {
-          _showMesaDetails(context, mesa);
+          _abrirComandaMesa(context, mesa);
         } else {
           _abrirMesa(context, mesa);
         }
@@ -306,114 +309,757 @@ class MesasSection extends StatelessWidget {
     );
   }
 
-  void _showMesaDetails(BuildContext context, MesaAberta mesa) {
+  void _abrirComandaMesa(BuildContext context, MesaAberta mesa) async {
+    // Verificar se a mesa tem cliente associado
+    if (mesa.cliente == null || mesa.cliente!.isEmpty) {
+      // Se não tem cliente, mostrar lista para associar
+      await _associarClienteMesa(context, mesa);
+      return;
+    }
+
+    // Se tem cliente, abrir modal da comanda
     showDialog(
+      context: context,
+      builder: (context) => ComandaMesaModal(
+        mesa: mesa,
+        onMesaFechada: () {
+          // Recarregar mesas após fechar a mesa
+          controller.refresh();
+        },
+        onModalFechado: () {
+          // Recarregar mesas sempre que o modal for fechado (para atualizar valores)
+          controller.refresh();
+        },
+      ),
+    );
+  }
+
+  Future<void> _associarClienteMesa(BuildContext context, MesaAberta mesa) async {
+    // Buscar lista de clientes
+    final clientesResponse = await ClienteRepository.getClientes();
+    List<Cliente> clientes = [];
+
+    if (clientesResponse['success'] == true) {
+      final data = clientesResponse['data'];
+      List<dynamic> clientesData;
+      
+      if (data is List) {
+        clientesData = data;
+      } else if (data is Map && data['clientes'] is List) {
+        clientesData = data['clientes'];
+      } else if (data is Map && data['data'] is List) {
+        clientesData = data['data'];
+      } else {
+        clientesData = [];
+      }
+
+      clientes = clientesData
+          .map((json) => Cliente.fromJson(json))
+          .toList();
+    }
+
+    if (clientes.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nenhum cliente cadastrado. Cadastre um cliente primeiro.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Mostrar diálogo para selecionar cliente
+    final clienteSelecionado = await showDialog<Cliente>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Colors.white12, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Associar Cliente à ${mesa.nome}',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'A mesa precisa de um cliente para ser ocupada',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              // Lista de clientes
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: clientes.length,
+                  itemBuilder: (context, index) {
+                    final cliente = clientes[index];
+                    return Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.green,
+                          child: Text(
+                            cliente.nomeCompleto.isNotEmpty
+                                ? cliente.nomeCompleto[0].toUpperCase()
+                                : '?',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          cliente.nomeCompleto,
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        subtitle: Text(
+                          cliente.telefone,
+                          style: GoogleFonts.poppins(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.white70,
+                          size: 16,
+                        ),
+                        onTap: () => Navigator.pop(context, cliente),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Botão cancelar
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.white12, width: 1),
+                  ),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[800],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      'Cancelar',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (clienteSelecionado != null && context.mounted) {
+      final clienteId = int.tryParse(clienteSelecionado.id);
+      
+      if (clienteId == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('ID do cliente inválido'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final sucesso = await controller.ocuparMesa(
+        id: mesa.id,
+        clienteId: clienteId,
+      );
+
+      if (context.mounted) {
+        if (sucesso) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cliente associado à ${mesa.nome} com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Recarregar mesas
+          await controller.refresh();
+          // Buscar mesa atualizada e abrir modal da comanda
+          if (context.mounted) {
+            final mesaAtualizada = controller.mesas.firstWhere(
+              (m) => m.id == mesa.id,
+              orElse: () => mesa,
+            );
+            // Aguardar um pouco para garantir que a API processou
+            await Future.delayed(const Duration(milliseconds: 300));
+            if (context.mounted) {
+              _abrirComandaMesa(context, mesaAtualizada);
+            }
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(controller.error ?? 'Erro ao associar cliente'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _abrirMesa(BuildContext context, MesaAberta mesa) async {
+    // Buscar lista de clientes
+    final clientesResponse = await ClienteRepository.getClientes();
+    List<Cliente> clientes = [];
+
+    if (clientesResponse['success'] == true) {
+      final data = clientesResponse['data'];
+      List<dynamic> clientesData;
+      
+      if (data is List) {
+        clientesData = data;
+      } else if (data is Map && data['clientes'] is List) {
+        clientesData = data['clientes'];
+      } else if (data is Map && data['data'] is List) {
+        clientesData = data['data'];
+      } else {
+        clientesData = [];
+      }
+
+      clientes = clientesData
+          .map((json) => Cliente.fromJson(json))
+          .toList();
+    }
+
+    if (clientes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nenhum cliente cadastrado. Cadastre um cliente primeiro.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Mostrar diálogo para selecionar cliente
+    final clienteSelecionado = await showDialog<Cliente>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Colors.white12, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Abrir ${mesa.nome}',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Selecione um cliente para associar à mesa',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              // Lista de clientes
+              Flexible(
+                child: clientes.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 64,
+                              color: Colors.white30,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Nenhum cliente cadastrado',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: clientes.length,
+                        itemBuilder: (context, index) {
+                          final cliente = clientes[index];
+                          return Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[800],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.green,
+                                child: Text(
+                                  cliente.nomeCompleto.isNotEmpty
+                                      ? cliente.nomeCompleto[0].toUpperCase()
+                                      : '?',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                cliente.nomeCompleto,
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              subtitle: Text(
+                                cliente.telefone,
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                color: Colors.white70,
+                                size: 16,
+                              ),
+                              onTap: () => Navigator.pop(context, cliente),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              // Botão cancelar
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.white12, width: 1),
+                  ),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[800],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      'Cancelar',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (clienteSelecionado != null) {
+      final clienteId = int.tryParse(clienteSelecionado.id);
+      
+      if (clienteId == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('ID do cliente inválido'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final sucesso = await controller.ocuparMesa(
+        id: mesa.id,
+        clienteId: clienteId,
+      );
+
+      if (context.mounted) {
+        if (sucesso) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${mesa.nome} aberta com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(controller.error ?? 'Erro ao abrir mesa'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _fecharMesa(BuildContext context, MesaAberta mesa) async {
+    // Confirmar fechamento
+    final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
         title: Text(
-          mesa.nome,
+          'Fechar Mesa',
           style: GoogleFonts.poppins(
             color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow('Status', mesa.ativa ? 'Ocupada' : 'Livre'),
-            if (mesa.cliente != null)
-              _buildDetailRow('Cliente', mesa.cliente!),
-            _buildDetailRow('Valor', 'R\$ ${mesa.valor.toStringAsFixed(2)}'),
-            if (mesa.dataAbertura != null)
-              _buildDetailRow(
-                'Aberta em',
-                '${mesa.dataAbertura!.day}/${mesa.dataAbertura!.month}/${mesa.dataAbertura!.year}',
-              ),
-          ],
+        content: Text(
+          'Deseja realmente fechar ${mesa.nome}?',
+          style: GoogleFonts.poppins(color: Colors.white70),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: Text(
-              'Fechar',
+              'Cancelar',
               style: GoogleFonts.poppins(color: Colors.white70),
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _fecharMesa(context, mesa);
-            },
+            onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Fechar Mesa'),
+            child: const Text('Fechar'),
           ),
         ],
       ),
     );
+
+    if (confirmar == true) {
+      final sucesso = await controller.liberarMesa(mesa.id);
+
+      if (context.mounted) {
+        if (sucesso) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${mesa.nome} fechada com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(controller.error ?? 'Erro ao fechar mesa'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: Colors.white70,
-                fontSize: 14,
+  void _adicionarMesa(BuildContext context) async {
+    final numeroController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool mesaAtiva = false;
+    Cliente? clienteSelecionado;
+    
+    // Buscar lista de clientes para o dropdown
+    final clientesResponse = await ClienteRepository.getClientes();
+    List<Cliente> clientes = [];
+
+    if (clientesResponse['success'] == true) {
+      final data = clientesResponse['data'];
+      List<dynamic> clientesData;
+      
+      if (data is List) {
+        clientesData = data;
+      } else if (data is Map && data['clientes'] is List) {
+        clientesData = data['clientes'];
+      } else if (data is Map && data['data'] is List) {
+        clientesData = data['data'];
+      } else {
+        clientesData = [];
+      }
+
+      clientes = clientesData
+          .map((json) => Cliente.fromJson(json))
+          .toList();
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(
+            'Adicionar Nova Mesa',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Campo número da mesa
+                  TextFormField(
+                    controller: numeroController,
+                    style: GoogleFonts.poppins(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Número da Mesa *',
+                      labelStyle: GoogleFonts.poppins(color: Colors.white70),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white70),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.green),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Digite o número da mesa';
+                      }
+                      if (int.tryParse(value) == null) {
+                        return 'Digite um número válido';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  // Checkbox mesa ativa
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: mesaAtiva,
+                        onChanged: (value) {
+                          setState(() {
+                            mesaAtiva = value ?? false;
+                          });
+                        },
+                        activeColor: Colors.green,
+                      ),
+                      Text(
+                        'Mesa ativa (ocupada)',
+                        style: GoogleFonts.poppins(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Dropdown cliente (opcional)
+                  Text(
+                    'Cliente (opcional)',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<Cliente?>(
+                        value: clienteSelecionado,
+                        isExpanded: true,
+                        hint: Text(
+                          'Selecione um cliente (opcional)',
+                          style: GoogleFonts.poppins(color: Colors.white70),
+                        ),
+                        dropdownColor: Colors.grey[800],
+                        style: GoogleFonts.poppins(color: Colors.white),
+                        items: [
+                          const DropdownMenuItem<Cliente?>(
+                            value: null,
+                            child: Text('Nenhum cliente'),
+                          ),
+                          ...clientes.map((cliente) {
+                            return DropdownMenuItem<Cliente?>(
+                              value: cliente,
+                              child: Text(cliente.nomeCompleto),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            clienteSelecionado = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.poppins(color: Colors.white70),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final numero = int.tryParse(numeroController.text);
+                  if (numero != null) {
+                    Navigator.pop(context);
+                    
+                    final clienteId = clienteSelecionado != null
+                        ? int.tryParse(clienteSelecionado!.id)
+                        : null;
+                    
+                    final sucesso = await controller.criarMesa(
+                      numero: numero,
+                      ativa: mesaAtiva,
+                      clienteId: clienteId,
+                    );
 
-  void _abrirMesa(BuildContext context, MesaAberta mesa) {
-    // TODO: Implementar abertura de mesa
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Abrir mesa ${mesa.nome}'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _fecharMesa(BuildContext context, MesaAberta mesa) {
-    // TODO: Implementar fechamento de mesa
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Fechar mesa ${mesa.nome}'),
-        backgroundColor: Colors.orange,
-      ),
-    );
-  }
-
-  void _adicionarMesa(BuildContext context) {
-    // TODO: Implementar adição de nova mesa
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Adicionar nova mesa'),
-        backgroundColor: Colors.green,
+                    if (context.mounted) {
+                      if (sucesso) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Mesa $numero adicionada com sucesso!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(controller.error ?? 'Erro ao adicionar mesa'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Adicionar'),
+            ),
+          ],
+        ),
       ),
     );
   }
