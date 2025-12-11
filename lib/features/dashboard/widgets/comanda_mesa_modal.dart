@@ -27,7 +27,7 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
   bool isLoading = false;
   bool isLoadingProdutos = false;
   String? error;
-  
+
   int? produtoSelecionadoId;
   final quantidadeController = TextEditingController(text: '1');
 
@@ -59,9 +59,9 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
     try {
       // Primeiro, tentar buscar a mesa completa (pode vir com comanda)
       final mesaResponse = await MesaRepository.getMesaPorId(widget.mesa.id);
-      
+
       print('🔵 [COMANDA] Resposta da mesa: ${mesaResponse['success']}');
-      
+
       if (mesaResponse['success'] == true) {
         final mesaData = mesaResponse['data'];
         print('🔵 [COMANDA] Dados da mesa: $mesaData');
@@ -95,11 +95,12 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
 
         // Se não encontrou itens na mesa, tentar buscar comanda separadamente
         if (itensData.isEmpty) {
-          final comandaResponse = await MesaRepository.getComandaMesa(widget.mesa.id);
-          
+          final comandaResponse =
+              await MesaRepository.getComandaMesa(widget.mesa.id);
+
           if (comandaResponse['success'] == true) {
             final data = comandaResponse['data'];
-            
+
             if (data is Map) {
               if (data['itens'] is List) {
                 itensData = data['itens'];
@@ -117,7 +118,7 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
 
         print('🔵 [COMANDA] Itens encontrados: ${itensData.length}');
         print('🔵 [COMANDA] Dados dos itens: $itensData');
-        
+
         setState(() {
           itens = itensData
               .map((json) {
@@ -131,12 +132,13 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
               .whereType<ItemComanda>()
               .toList();
         });
-        
+
         print('✅ [COMANDA] Total de itens carregados: ${itens.length}');
       } else {
         // Se não conseguir buscar a mesa, tentar buscar só a comanda
-        final comandaResponse = await MesaRepository.getComandaMesa(widget.mesa.id);
-        
+        final comandaResponse =
+            await MesaRepository.getComandaMesa(widget.mesa.id);
+
         if (comandaResponse['success'] == true) {
           final data = comandaResponse['data'];
           List<dynamic> itensData = [];
@@ -152,9 +154,8 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
           }
 
           setState(() {
-            itens = itensData
-                .map((json) => ItemComanda.fromJson(json))
-                .toList();
+            itens =
+                itensData.map((json) => ItemComanda.fromJson(json)).toList();
           });
         } else if (comandaResponse['notFound'] == true) {
           // Comanda não existe, tratar como vazia
@@ -197,7 +198,7 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
         final data = response['data'];
         print('🔵 [COMANDA] Dados produtos tipo: ${data.runtimeType}');
         print('🔵 [COMANDA] Dados produtos: $data');
-        
+
         List<Map<String, dynamic>> listaProdutos = [];
 
         if (data is List) {
@@ -207,13 +208,13 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
           );
         } else if (data is Map) {
           // Tentar diferentes chaves possíveis
-          final lista = data['data'] ?? 
-                       data['items'] ?? 
-                       data['produtos'] ?? 
-                       data['products'] ??
-                       data['result'] ??
-                       [];
-          
+          final lista = data['data'] ??
+              data['items'] ??
+              data['produtos'] ??
+              data['products'] ??
+              data['result'] ??
+              [];
+
           if (lista is List) {
             listaProdutos = List<Map<String, dynamic>>.from(
               lista.map((item) => item is Map ? item : {}),
@@ -227,15 +228,17 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
         listaProdutos = listaProdutos.where((produto) {
           final id = produto['id'] ?? produto['produtoId'];
           // Priorizar nome, depois name, depois nomeProduto, e só então description
-          final nome = produto['nome'] ?? 
-                      produto['name'] ?? 
-                      produto['nomeProduto'] ??
-                      produto['description'] ?? '';
+          final nome = produto['nome'] ??
+              produto['name'] ??
+              produto['nomeProduto'] ??
+              produto['description'] ??
+              '';
           return id != null && nome.toString().isNotEmpty;
         }).toList();
 
         print('✅ [COMANDA] ${listaProdutos.length} produtos carregados');
-        print('🔵 [COMANDA] Produtos: ${listaProdutos.map((p) => p['nome'] ?? p['name'] ?? p['nomeProduto'] ?? p['description'] ?? 'Sem nome').toList()}');
+        print(
+            '🔵 [COMANDA] Produtos: ${listaProdutos.map((p) => p['nome'] ?? p['name'] ?? p['nomeProduto'] ?? p['description'] ?? 'Sem nome').toList()}');
 
         setState(() {
           produtos = listaProdutos;
@@ -296,27 +299,29 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
         // Limpar seleção
         produtoSelecionadoId = null;
         quantidadeController.text = '1';
-        
+
         // Verificar se a resposta contém dados atualizados
         final responseData = response['data'];
         if (responseData != null) {
           // Tentar extrair itens da resposta
           List<dynamic> itensData = [];
-          
+
           if (responseData is Map) {
             // Verificar diferentes estruturas possíveis
             if (responseData['itens'] is List) {
               itensData = responseData['itens'];
             } else if (responseData['items'] is List) {
               itensData = responseData['items'];
-            } else if (responseData['comanda'] != null && responseData['comanda'] is Map) {
+            } else if (responseData['comanda'] != null &&
+                responseData['comanda'] is Map) {
               final comanda = responseData['comanda'];
               if (comanda['itens'] is List) {
                 itensData = comanda['itens'];
               } else if (comanda['items'] is List) {
                 itensData = comanda['items'];
               }
-            } else if (responseData['mesa'] != null && responseData['mesa'] is Map) {
+            } else if (responseData['mesa'] != null &&
+                responseData['mesa'] is Map) {
               final mesa = responseData['mesa'];
               if (mesa['comandas'] is List) {
                 for (var comanda in mesa['comandas']) {
@@ -333,17 +338,19 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
           } else if (responseData is List) {
             itensData = responseData;
           }
-          
+
           // Se encontrou itens na resposta, usar eles
           if (itensData.isNotEmpty) {
-            print('✅ [COMANDA] Itens encontrados na resposta: ${itensData.length}');
+            print(
+                '✅ [COMANDA] Itens encontrados na resposta: ${itensData.length}');
             setState(() {
               itens = itensData
                   .map((json) {
                     try {
                       return ItemComanda.fromJson(json);
                     } catch (e) {
-                      print('🔴 [COMANDA] Erro ao parsear item da resposta: $json - $e');
+                      print(
+                          '🔴 [COMANDA] Erro ao parsear item da resposta: $json - $e');
                       return null;
                     }
                   })
@@ -352,7 +359,8 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
             });
             print('✅ [COMANDA] Total de itens após adicionar: ${itens.length}');
           } else {
-            print('⚠️ [COMANDA] Nenhum item na resposta, recarregando comanda...');
+            print(
+                '⚠️ [COMANDA] Nenhum item na resposta, recarregando comanda...');
             // Se não encontrou, aguardar um pouco e recarregar
             await Future.delayed(const Duration(milliseconds: 500));
             await _carregarComanda();
@@ -362,7 +370,7 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
           await Future.delayed(const Duration(milliseconds: 500));
           await _carregarComanda();
         }
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -410,7 +418,7 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
 
       if (response['success'] == true) {
         await _carregarComanda();
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -545,77 +553,78 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(24),
         child: Container(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            _buildHeader(),
-            
-            // Conteúdo
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Seção Adicionar Item
-                    _buildAdicionarItemSection(),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Lista de Itens
-                    if (isLoading && itens.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32.0),
-                          child: CircularProgressIndicator(color: Colors.white),
-                        ),
-                      )
-                    else if (error != null && itens.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Text(
-                            error!,
-                            style: GoogleFonts.poppins(color: Colors.red),
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              _buildHeader(),
+
+              // Conteúdo
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Seção Adicionar Item
+                      _buildAdicionarItemSection(),
+
+                      const SizedBox(height: 24),
+
+                      // Lista de Itens
+                      if (isLoading && itens.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child:
+                                CircularProgressIndicator(color: Colors.white),
                           ),
-                        ),
-                      )
-                    else if (itens.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Text(
-                            'Nenhum item na comanda',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white70,
-                              fontSize: 16,
+                        )
+                      else if (error != null && itens.isEmpty)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Text(
+                              error!,
+                              style: GoogleFonts.poppins(color: Colors.red),
                             ),
                           ),
-                        ),
-                      )
-                    else
-                      ...itens.map((item) => _buildItemCard(item)),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Total
-                    _buildTotalSection(),
-                  ],
+                        )
+                      else if (itens.isEmpty)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Text(
+                              'Nenhum item na comanda',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ...itens.map((item) => _buildItemCard(item)),
+
+                      const SizedBox(height: 24),
+
+                      // Total
+                      _buildTotalSection(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            
-            // Botões
-            _buildActionButtons(),
-          ],
+
+              // Botões
+              _buildActionButtons(),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -691,39 +700,46 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
                             DropdownMenuItem<int?>(
                               value: null,
                               child: Text(
-                                isLoadingProdutos 
-                                    ? 'Carregando produtos...' 
+                                isLoadingProdutos
+                                    ? 'Carregando produtos...'
                                     : 'Nenhum produto disponível',
-                                style: GoogleFonts.poppins(color: Colors.white70),
+                                style:
+                                    GoogleFonts.poppins(color: Colors.white70),
                               ),
                               enabled: false,
                             ),
                           ]
-                        : produtos.map((produto) {
-                            final id = produto['id'] ?? produto['produtoId'];
-                            
-                            // Priorizar nome, depois name, depois nomeProduto, e só então description
-                            final nome = produto['nome'] ?? 
-                                         produto['name'] ?? 
-                                         produto['nomeProduto'] ??
-                                         produto['description'] ??
-                                         'Produto sem nome';
-                            
-                            final idInt = id is int ? id : int.tryParse(id.toString());
-                            
-                            if (idInt == null) {
-                              print('⚠️ [COMANDA] Produto sem ID válido: $produto');
-                              return null;
-                            }
-                            
-                            return DropdownMenuItem<int?>(
-                              value: idInt,
-                              child: Text(
-                                nome.toString(),
-                                style: GoogleFonts.poppins(color: Colors.white),
-                              ),
-                            );
-                          }).whereType<DropdownMenuItem<int?>>().toList(),
+                        : produtos
+                            .map((produto) {
+                              final id = produto['id'] ?? produto['produtoId'];
+
+                              // Priorizar nome, depois name, depois nomeProduto, e só então description
+                              final nome = produto['nome'] ??
+                                  produto['name'] ??
+                                  produto['nomeProduto'] ??
+                                  produto['description'] ??
+                                  'Produto sem nome';
+
+                              final idInt =
+                                  id is int ? id : int.tryParse(id.toString());
+
+                              if (idInt == null) {
+                                print(
+                                    '⚠️ [COMANDA] Produto sem ID válido: $produto');
+                                return null;
+                              }
+
+                              return DropdownMenuItem<int?>(
+                                value: idInt,
+                                child: Text(
+                                  nome.toString(),
+                                  style:
+                                      GoogleFonts.poppins(color: Colors.white),
+                                ),
+                              );
+                            })
+                            .whereType<DropdownMenuItem<int?>>()
+                            .toList(),
                     onChanged: (value) {
                       setState(() {
                         produtoSelecionadoId = value;
@@ -912,4 +928,3 @@ class _ComandaMesaModalState extends State<ComandaMesaModal> {
     );
   }
 }
-
