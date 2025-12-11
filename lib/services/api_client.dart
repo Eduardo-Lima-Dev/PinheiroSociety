@@ -33,7 +33,44 @@ class ApiClient {
         Uri.parse('$baseUrl$endpoint'),
         headers: headers,
       );
-      final data = jsonDecode(res.body);
+      
+      // Verificar se a resposta é JSON antes de tentar decodificar
+      final contentType = res.headers['content-type'] ?? '';
+      if (!contentType.contains('application/json') && !contentType.contains('text/json')) {
+        // Se não for JSON, pode ser HTML (erro 404) ou outro formato
+        if (res.statusCode == 404) {
+          return {
+            'success': false,
+            'error': 'Recurso não encontrado',
+            'notFound': true,
+          };
+        }
+        return {
+          'success': false,
+          'error': 'Resposta inválida do servidor (não é JSON)',
+        };
+      }
+      
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (e) {
+        // Se falhar ao decodificar, pode ser HTML ou outro formato
+        if (res.body.trim().startsWith('<!DOCTYPE') || res.body.trim().startsWith('<html')) {
+          if (res.statusCode == 404) {
+            return {
+              'success': false,
+              'error': 'Recurso não encontrado',
+              'notFound': true,
+            };
+          }
+          return {
+            'success': false,
+            'error': 'Servidor retornou HTML ao invés de JSON',
+          };
+        }
+        rethrow;
+      }
       
       if (res.statusCode == 200) {
         return {'success': true, 'data': data};
@@ -41,7 +78,7 @@ class ApiClient {
       
       return {
         'success': false,
-        'error': data['message'] ?? 'Erro na requisição'
+        'error': data is Map ? (data['message'] ?? 'Erro na requisição') : 'Erro na requisição',
       };
     } catch (e) {
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
@@ -71,7 +108,43 @@ class ApiClient {
       print('🟢 [ApiClient] Status Code: ${response.statusCode}');
       print('🟢 [ApiClient] Response Body: ${response.body}');
 
-      final responseData = jsonDecode(response.body);
+      // Verificar se a resposta é JSON antes de tentar decodificar
+      final contentType = response.headers['content-type'] ?? '';
+      if (!contentType.contains('application/json') && !contentType.contains('text/json')) {
+        // Se não for JSON, pode ser HTML (erro 404) ou outro formato
+        if (response.statusCode == 404) {
+          return {
+            'success': false,
+            'error': 'Rota não encontrada: $endpoint',
+            'notFound': true,
+          };
+        }
+        return {
+          'success': false,
+          'error': 'Resposta inválida do servidor (não é JSON)',
+        };
+      }
+
+      dynamic responseData;
+      try {
+        responseData = jsonDecode(response.body);
+      } catch (e) {
+        // Se falhar ao decodificar, pode ser HTML ou outro formato
+        if (response.body.trim().startsWith('<!DOCTYPE') || response.body.trim().startsWith('<html')) {
+          if (response.statusCode == 404) {
+            return {
+              'success': false,
+              'error': 'Rota não encontrada: $endpoint',
+              'notFound': true,
+            };
+          }
+          return {
+            'success': false,
+            'error': 'Servidor retornou HTML ao invés de JSON',
+          };
+        }
+        rethrow;
+      }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('✅ [ApiClient] Sucesso na requisição');
@@ -79,11 +152,11 @@ class ApiClient {
       }
 
       print('❌ [ApiClient] Erro na requisição - Status: ${response.statusCode}');
-      print('❌ [ApiClient] Erro message: ${responseData['message']}');
+      print('❌ [ApiClient] Erro message: ${responseData is Map ? responseData['message'] : 'Erro desconhecido'}');
       
       return {
         'success': false,
-        'error': responseData['message'] ?? 'Erro na requisição',
+        'error': responseData is Map ? (responseData['message'] ?? 'Erro na requisição') : 'Erro na requisição',
       };
     } catch (e, stackTrace) {
       print('🔴 [ApiClient] Exceção na requisição POST:');
@@ -169,4 +242,3 @@ class ApiClient {
     }
   }
 }
-
