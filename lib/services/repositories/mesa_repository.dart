@@ -11,18 +11,18 @@ class MesaRepository {
   }) async {
     String queryParams = '';
     final params = <String>[];
-    
+
     if (ativa != null) {
       params.add('ativa=$ativa');
     }
     if (ocupada != null) {
       params.add('ocupada=$ocupada');
     }
-    
+
     if (params.isNotEmpty) {
       queryParams = '?${params.join('&')}';
     }
-    
+
     return await ApiClient.get('/mesas$queryParams');
   }
 
@@ -49,11 +49,11 @@ class MesaRepository {
       'numero': numero,
       'ativa': ativa,
     };
-    
+
     if (clienteId != null) {
       body['clienteId'] = clienteId;
     }
-    
+
     return await ApiClient.post('/mesas', body);
   }
 
@@ -69,7 +69,7 @@ class MesaRepository {
     bool? ativa,
   }) async {
     final body = <String, dynamic>{};
-    
+
     if (numero != null) {
       body['numero'] = numero;
     }
@@ -79,7 +79,7 @@ class MesaRepository {
     if (ativa != null) {
       body['ativa'] = ativa;
     }
-    
+
     return await ApiClient.put('/mesas/$id', body);
   }
 
@@ -110,7 +110,7 @@ class MesaRepository {
   /// Retorna o ID da comanda aberta ou null se não existir
   static Future<int?> getComandaAbertaId(int mesaId) async {
     final mesaResponse = await getMesaPorId(mesaId);
-    
+
     if (mesaResponse['success'] == true) {
       final mesaData = mesaResponse['data'];
       if (mesaData is Map && mesaData['comandas'] is List) {
@@ -128,7 +128,7 @@ class MesaRepository {
         }
       }
     }
-    
+
     return null;
   }
 
@@ -156,11 +156,11 @@ class MesaRepository {
   static Future<Map<String, dynamic>> getComandaMesa(int id) async {
     // Primeiro, tentar buscar comanda aberta da mesa
     final comandaId = await getComandaAbertaId(id);
-    
+
     if (comandaId != null) {
       return await getComandaPorId(comandaId);
     }
-    
+
     // Se não encontrou, retornar notFound
     return {
       'success': false,
@@ -185,20 +185,21 @@ class MesaRepository {
     final body = <String, dynamic>{
       'quantity': quantity,
     };
-    
+
     if (produtoId != null) {
       body['produtoId'] = produtoId;
     } else {
       if (description == null || unitCents == null) {
         return {
           'success': false,
-          'error': 'Para itens customizados, description e unitCents são obrigatórios',
+          'error':
+              'Para itens customizados, description e unitCents são obrigatórios',
         };
       }
       body['description'] = description;
       body['unitCents'] = unitCents;
     }
-    
+
     return await ApiClient.post('/comandas/$comandaId/itens', body);
   }
 
@@ -213,12 +214,12 @@ class MesaRepository {
   }) async {
     // Buscar ou criar comanda aberta
     var comandaId = await getComandaAbertaId(mesaId);
-    
+
     if (comandaId == null) {
       // Buscar dados da mesa para pegar clienteId
       final mesaResponse = await getMesaPorId(mesaId);
       int? clienteId;
-      
+
       if (mesaResponse['success'] == true) {
         final mesaData = mesaResponse['data'];
         if (mesaData is Map) {
@@ -230,24 +231,24 @@ class MesaRepository {
           }
         }
       }
-      
+
       if (clienteId == null) {
         return {
           'success': false,
           'error': 'Mesa não possui cliente associado',
         };
       }
-      
+
       // Criar nova comanda
       final criarResponse = await criarComanda(
         mesaId: mesaId,
         clienteId: clienteId,
       );
-      
+
       if (criarResponse['success'] != true) {
         return criarResponse;
       }
-      
+
       final comandaData = criarResponse['data'];
       if (comandaData is Map && comandaData['id'] != null) {
         comandaId = int.tryParse(comandaData['id'].toString());
@@ -258,7 +259,7 @@ class MesaRepository {
         };
       }
     }
-    
+
     // Adicionar item à comanda
     return await adicionarItemComanda(
       comandaId: comandaId!,
@@ -285,18 +286,38 @@ class MesaRepository {
     required int itemId,
   }) async {
     final comandaId = await getComandaAbertaId(mesaId);
-    
+
     if (comandaId == null) {
       return {
         'success': false,
         'error': 'Comanda não encontrada',
       };
     }
-    
+
     return await removerItemComanda(
       comandaId: comandaId,
       itemId: itemId,
     );
   }
-}
 
+  /// Fecha uma comanda
+  /// [comandaId] - ID da comanda
+  static Future<Map<String, dynamic>> fecharComanda(int comandaId) async {
+    return await ApiClient.put('/comandas/$comandaId/fechar', {});
+  }
+
+  /// Fecha a comanda de uma mesa (método auxiliar)
+  /// [mesaId] - ID da mesa
+  static Future<Map<String, dynamic>> fecharComandaMesa(int mesaId) async {
+    final comandaId = await getComandaAbertaId(mesaId);
+
+    if (comandaId == null) {
+      return {
+        'success': false,
+        'error': 'Comanda não encontrada',
+      };
+    }
+
+    return await fecharComanda(comandaId);
+  }
+}
