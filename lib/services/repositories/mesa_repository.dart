@@ -6,7 +6,7 @@ class MesaRepository {
   /// [ativa] - Filtrar por mesas ativas/inativas (opcional)
   /// [ocupada] - Filtrar por mesas ocupadas/livres (opcional)
   static Future<Map<String, dynamic>> getMesas({
-    bool? ativa,
+    bool? ativa,  
     bool? ocupada,
   }) async {
     String queryParams = '';
