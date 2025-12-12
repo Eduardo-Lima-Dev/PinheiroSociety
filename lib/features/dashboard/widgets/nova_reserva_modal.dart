@@ -7,7 +7,7 @@ import 'confirmar_pagamento_modal.dart';
 
 class NovaReservaModal extends StatefulWidget {
   final bool modoEdicao;
-  
+
   const NovaReservaModal({
     super.key,
     this.modoEdicao = false,
@@ -32,14 +32,21 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final maxWidth = screenSize.width > 600 ? 500.0 : screenSize.width * 0.9;
+    final maxHeight = screenSize.height * 0.9;
+
     return Dialog(
       backgroundColor: const Color(0xFF2A2A2A),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: Container(
-        width: 400,
-        padding: const EdgeInsets.all(24),
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: maxHeight,
+        ),
+        padding: EdgeInsets.all(screenSize.width > 600 ? 24 : 16),
         child: Consumer<NovaReservaController>(
           builder: (context, controller, _) {
             if (controller.isLoading) {
@@ -53,182 +60,190 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
               );
             }
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Text(
-                      controller.modoEdicao ? 'Reagendar Reserva' : 'Nova Reserva',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      iconSize: 20,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Cliente
-                _buildLabel('Cliente'),
-                const SizedBox(height: 8),
-                _buildClienteDropdown(controller),
-
-                const SizedBox(height: 16),
-
-                // Campo (Quadra)
-                _buildLabel('Campo'),
-                const SizedBox(height: 8),
-                _buildQuadraDropdown(controller),
-
-                const SizedBox(height: 16),
-
-                // Data
-                _buildLabel('Data'),
-                const SizedBox(height: 8),
-                _buildDataPicker(controller),
-
-                const SizedBox(height: 16),
-
-                // Horário
-                _buildLabel('Horário'),
-                const SizedBox(height: 8),
-                _buildHorarioDropdown(controller),
-
-                const SizedBox(height: 16),
-
-                // Duração
-                _buildLabel('Duração'),
-                const SizedBox(height: 8),
-                _buildDuracaoDropdown(controller),
-
-                const SizedBox(height: 16),
-
-                // Cliente fixo checkbox
-                Row(
-                  children: [
-                    Checkbox(
-                      value: controller.isClienteFixo,
-                      onChanged: controller.modoEdicao 
-                          ? null 
-                          : (value) => controller.toggleClienteFixo(value ?? false),
-                      fillColor: WidgetStateProperty.resolveWith<Color>(
-                        (states) {
-                          if (states.contains(WidgetState.disabled)) {
-                            return Colors.white12;
-                          }
-                          return states.contains(WidgetState.selected)
-                              ? Colors.green
-                              : Colors.white24;
-                        },
-                      ),
-                    ),
-                    Text(
-                      'Cliente fixo',
-                      style: GoogleFonts.poppins(
-                        color: controller.modoEdicao ? Colors.white38 : Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-
-                if (controller.isClienteFixo) ...[
-                  const SizedBox(height: 8),
-                  _buildLabel('Fim da recorrência'),
-                  const SizedBox(height: 8),
-                  _buildFimRecorrenciaPicker(controller),
-                  const SizedBox(height: 8),
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
                   Row(
                     children: [
-                      const Icon(
-                        Icons.info_outline,
-                        color: Colors.blue,
-                        size: 16,
+                      Text(
+                        controller.modoEdicao
+                            ? 'Reagendar Reserva'
+                            : 'Nova Reserva',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        iconSize: 20,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Cliente
+                  _buildLabel('Cliente'),
+                  const SizedBox(height: 8),
+                  _buildClienteDropdown(controller),
+
+                  const SizedBox(height: 16),
+
+                  // Campo (Quadra)
+                  _buildLabel('Campo'),
+                  const SizedBox(height: 8),
+                  _buildQuadraDropdown(controller),
+
+                  const SizedBox(height: 16),
+
+                  // Data
+                  _buildLabel('Data'),
+                  const SizedBox(height: 8),
+                  _buildDataPicker(controller),
+
+                  const SizedBox(height: 16),
+
+                  // Horário
+                  _buildLabel('Horário'),
+                  const SizedBox(height: 8),
+                  _buildHorarioDropdown(controller),
+
+                  const SizedBox(height: 16),
+
+                  // Duração
+                  _buildLabel('Duração'),
+                  const SizedBox(height: 8),
+                  _buildDuracaoDropdown(controller),
+
+                  const SizedBox(height: 16),
+
+                  // Cliente fixo checkbox
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: controller.isClienteFixo,
+                        onChanged: controller.modoEdicao
+                            ? null
+                            : (value) =>
+                                controller.toggleClienteFixo(value ?? false),
+                        fillColor: WidgetStateProperty.resolveWith<Color>(
+                          (states) {
+                            if (states.contains(WidgetState.disabled)) {
+                              return Colors.white12;
+                            }
+                            return states.contains(WidgetState.selected)
+                                ? Colors.green
+                                : Colors.white24;
+                          },
+                        ),
+                      ),
+                      Text(
+                        'Cliente fixo',
+                        style: GoogleFonts.poppins(
+                          color: controller.modoEdicao
+                              ? Colors.white38
+                              : Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (controller.isClienteFixo) ...[
+                    const SizedBox(height: 8),
+                    _buildLabel('Fim da recorrência'),
+                    const SizedBox(height: 8),
+                    _buildFimRecorrenciaPicker(controller),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: Colors.blue,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Limite máximo: 12 meses (1 ano)',
+                            style: GoogleFonts.poppins(
+                              color: Colors.blue,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  if (controller.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        controller.error!,
+                        style: GoogleFonts.poppins(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 24),
+
+                  // Botões
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
                         child: Text(
-                          'Limite máximo: 12 meses (1 ano)',
+                          'Cancelar',
                           style: GoogleFonts.poppins(
-                            color: Colors.blue,
-                            fontSize: 12,
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: controller.podeAvancar()
+                            ? () => controller.modoEdicao
+                                ? _confirmarReagendamento(context, controller)
+                                : _abrirConfirmacaoPagamento(
+                                    context, controller)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey.shade700,
+                          disabledForegroundColor: Colors.white38,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          controller.modoEdicao ? 'Confirmar' : 'Avançar',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ],
-
-                if (controller.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text(
-                      controller.error!,
-                      style: GoogleFonts.poppins(
-                        color: Colors.red,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-
-                const SizedBox(height: 24),
-
-                // Botões
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        'Cancelar',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: controller.podeAvancar()
-                          ? () => controller.modoEdicao
-                              ? _confirmarReagendamento(context, controller)
-                              : _abrirConfirmacaoPagamento(context, controller)
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.grey.shade700,
-                        disabledForegroundColor: Colors.white38,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        controller.modoEdicao ? 'Confirmar' : 'Avançar',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             );
           },
         ),
@@ -249,7 +264,9 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
 
   Widget _buildClienteDropdown(NovaReservaController controller) {
     // Se não houver clientes, mostrar mensagem
-    if (controller.clientes.isEmpty && !controller.isLoading && !controller.modoEdicao) {
+    if (controller.clientes.isEmpty &&
+        !controller.isLoading &&
+        !controller.modoEdicao) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -289,7 +306,8 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
             const Icon(Icons.lock, color: Colors.white24, size: 18),
             const SizedBox(width: 12),
             Text(
-              controller.clienteSelecionado?.nomeCompleto ?? 'Cliente não informado',
+              controller.clienteSelecionado?.nomeCompleto ??
+                  'Cliente não informado',
               style: GoogleFonts.poppins(
                 color: Colors.white54,
                 fontSize: 14,
@@ -360,7 +378,8 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
             const Icon(Icons.lock, color: Colors.white24, size: 18),
             const SizedBox(width: 12),
             Text(
-              controller.quadraSelecionada?['nome'] as String? ?? 'Quadra não informada',
+              controller.quadraSelecionada?['nome'] as String? ??
+                  'Quadra não informada',
               style: GoogleFonts.poppins(
                 color: Colors.white54,
                 fontSize: 14,
@@ -570,16 +589,17 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
   Widget _buildFimRecorrenciaPicker(NovaReservaController controller) {
     final data = controller.dataFimRecorrencia;
     final dataInicial = controller.dataSelecionada ?? DateTime.now();
-    final limiteMaximo = dataInicial.add(const Duration(days: 365)); // 12 meses = 365 dias
-    
+    final limiteMaximo =
+        dataInicial.add(const Duration(days: 365)); // 12 meses = 365 dias
+
     return InkWell(
       onTap: () async {
-        final initial = data ??
-            dataInicial.add(const Duration(days: 30));
-        
+        final initial = data ?? dataInicial.add(const Duration(days: 30));
+
         // Garantir que o initialDate não ultrapasse o limite máximo
-        final initialDateSafe = initial.isAfter(limiteMaximo) ? limiteMaximo : initial;
-        
+        final initialDateSafe =
+            initial.isAfter(limiteMaximo) ? limiteMaximo : initial;
+
         final picked = await showDatePicker(
           context: context,
           initialDate: initialDateSafe,
@@ -658,7 +678,7 @@ class _NovaReservaModalState extends State<NovaReservaModal> {
     NovaReservaController controller,
   ) async {
     final sucesso = await controller.reagendarReserva();
-    
+
     if (!mounted) return;
 
     if (sucesso) {
