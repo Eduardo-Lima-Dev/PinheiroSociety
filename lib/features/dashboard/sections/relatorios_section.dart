@@ -5,6 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:intl/intl.dart';
+import '../../../services/repositories/relatorio_repository.dart';
+import '../models/relatorio_faturamento_model.dart';
+import '../models/relatorio_estoque_model.dart';
 
 class RelatoriosSection extends StatefulWidget {
   const RelatoriosSection({super.key});
@@ -15,37 +19,118 @@ class RelatoriosSection extends StatefulWidget {
 
 class _RelatoriosSectionState extends State<RelatoriosSection> {
   int _selectedTab = 0; // 0 = Financeiro, 1 = Reservas, 2 = Bar
+  bool _isLoading = false;
+  
+  // Filtros de data
+  late DateTime _dataInicio;
+  late DateTime _dataFim;
 
-  // Mock data usados também na exportação em PDF
+  // Dados dos relatórios
+  RelatorioFaturamento? _dadosFaturamento;
+  RelatorioEstoque? _dadosEstoque;
+  Map<String, dynamic>? _dadosReservas;
+  Map<String, dynamic>? _dadosClientes;
+
+  /* MOCK DATA ORIGINAL (Mantido para referência)
   final List<_LinhaReserva> _topClientes = [
-    _LinhaReserva('Carlos Silva', '12', 'R\$ 1.320'),
-    _LinhaReserva('Maria Santos', '10', 'R\$ 1.100'),
-    _LinhaReserva('João Oliveira', '9', 'R\$ 990'),
-    _LinhaReserva('Ana Costa', '8', 'R\$ 880'),
-    _LinhaReserva('Pedro Alves', '7', 'R\$ 770'),
+    _LinhaReserva('João Silva', '12', 'R\$ 2.400,00'),
+    _LinhaReserva('Maria Santos', '8', 'R\$ 1.600,00'),
+    _LinhaReserva('Pedro Oliveira', '5', 'R\$ 1.000,00'),
   ];
 
   final List<_LinhaHorario> _horariosMaisReservados = [
-    _LinhaHorario('08:00-12:00', '45', 'R\$ 4.500'),
-    _LinhaHorario('12:00-17:00', '78', 'R\$ 7.800'),
-    _LinhaHorario('17:00-23:00', '201', 'R\$ 22.110'),
+    _LinhaHorario('19:00 - 20:00', '45', 'R\$ 9.000,00'),
+    _LinhaHorario('20:00 - 21:00', '42', 'R\$ 8.400,00'),
+    _LinhaHorario('18:00 - 19:00', '30', 'R\$ 6.000,00'),
   ];
 
   final List<_LinhaProdutoBar> _produtosMaisVendidos = [
-    _LinhaProdutoBar('Cerveja Heineken', '156', 'R\$ 1.560', '11,7'),
-    _LinhaProdutoBar('Coca-Cola 2L', '98', 'R\$ 1.176', '8,9'),
-    _LinhaProdutoBar('Porção de Frango', '45', 'R\$ 1.575', '11,9'),
-    _LinhaProdutoBar('Água Mineral', '234', 'R\$ 936', '7,0'),
-    _LinhaProdutoBar('Porção de Batata', '38', 'R\$ 950', '7,2'),
+    _LinhaProdutoBar('Cerveja Heineken', '150', 'R\$ 2.250,00', '16.9'),
+    _LinhaProdutoBar('Água Mineral', '200', 'R\$ 1.000,00', '7.5'),
+    _LinhaProdutoBar('Energético', '80', 'R\$ 1.200,00', '9.0'),
   ];
 
   final List<_LinhaMovBar> _movimentacaoEstoqueBar = [
-    _LinhaMovBar('Coca-Cola 2L', '98', '5', 'Baixo'),
-    _LinhaMovBar('Cerveja Heineken', '156', '30', 'OK'),
-    _LinhaMovBar('Água Mineral', '234', '8', 'Baixo'),
-    _LinhaMovBar('Porção de Batata', '38', '15', 'OK'),
-    _LinhaMovBar('Porção de Frango', '45', '12', 'OK'),
+    _LinhaMovBar('Cerveja Heineken', '150', '24', 'Baixo'),
+    _LinhaMovBar('Água Mineral', '200', '100', 'OK'),
+    _LinhaMovBar('Energético', '80', '40', 'OK'),
   ];
+  */
+
+  @override
+  void initState() {
+    super.initState();
+    // Padrão: Últimos 30 dias
+    final hoje = DateTime.now();
+    _dataFim = hoje;
+    _dataInicio = hoje.subtract(const Duration(days: 30));
+    
+    _carregarDados();
+  }
+
+  Future<void> _carregarDados() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final inicioStr = DateFormat('yyyy-MM-dd').format(_dataInicio);
+      final fimStr = DateFormat('yyyy-MM-dd').format(_dataFim);
+
+      final faturamentoFuture = RelatorioRepository.getFaturamento(
+        dataInicio: inicioStr,
+        dataFim: fimStr,
+      );
+      
+      final estoqueFuture = RelatorioRepository.getEstoque();
+      
+      final reservasFuture = RelatorioRepository.getReservas(
+        dataInicio: inicioStr,
+        dataFim: fimStr,
+      );
+
+      final results = await Future.wait([
+        faturamentoFuture,
+        estoqueFuture,
+        reservasFuture,
+        RelatorioRepository.getClientes(dataInicio: inicioStr, dataFim: fimStr),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          if (results[0]['success'] == true) {
+             _dadosFaturamento = RelatorioFaturamento.fromJson(results[0]['data']);
+          }
+          
+          if (results[1]['success'] == true) {
+             _dadosEstoque = RelatorioEstoque.fromJson(results[1]['data']);
+          }
+
+          if (results[2]['success'] == true) {
+             _dadosReservas = results[2]['data'];
+          }
+           
+          if (results[3]['success'] == true) {
+             _dadosClientes = results[3]['data'];
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar relatórios: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao carregar dados: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  String _formatCurrency(int cents) {
+    final value = cents / 100.0;
+    return NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,21 +196,41 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
           Expanded(
             child: _FiltroDataField(
               label: 'Data Início',
-              hintText: 'Selecionar data',
-              onTap: () {},
+              hintText: DateFormat('dd/MM/yyyy').format(_dataInicio),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dataInicio,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() => _dataInicio = picked);
+                }
+              },
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: _FiltroDataField(
               label: 'Data Fim',
-              hintText: 'Selecionar data',
-              onTap: () {},
+              hintText: DateFormat('dd/MM/yyyy').format(_dataFim),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dataFim,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() => _dataFim = picked);
+                }
+              },
             ),
           ),
           const SizedBox(width: 16),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: _isLoading ? null : _carregarDados,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF272B30),
               foregroundColor: Colors.white,
@@ -134,12 +239,18 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Text(
-              'Atualizar',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: _isLoading 
+              ? const SizedBox(
+                  width: 20, 
+                  height: 20, 
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                )
+              : Text(
+                  'Atualizar',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
           ),
         ],
       ),
@@ -147,31 +258,46 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
   }
 
   Widget _buildCardsResumo() {
+    // Cálculos para cards
+    final total = _dadosFaturamento?.faturamentoTotal ?? 0;
+    final comandas = _dadosFaturamento?.faturamentoPorTipoVenda.comandas ?? 0;
+    final lancamentos = _dadosFaturamento?.faturamentoPorTipoVenda.lancamentos ?? 0;
+    
+    final pctComandas = total > 0 ? (comandas / total * 100).toStringAsFixed(1) : '0.0';
+    final pctLancamentos = total > 0 ? (lancamentos / total * 100).toStringAsFixed(1) : '0.0';
+    
+    final totalReservas = _dadosReservas?['total'] ?? 0;
+    // Média considerando faturamento total / num reservas (apenas estimativa simples se não tiver outro dado)
+    // Ou usar o 'faturamentoTotal' das reservas que vem no endpoint de reservas se disponível.
+    // O endpoint /relatorios/reservas retorna 'faturamentoTotal' específico de reservas.
+    final receitaReservas = _dadosReservas?['faturamentoTotal'] ?? 0;
+    final mediaReservas = totalReservas > 0 ? receitaReservas / totalReservas : 0;
+
     return Row(
       children: [
         Expanded(
           child: _ResumoCard(
             titulo: 'Receita Total',
-            valor: 'R\$ 45.680',
-            descricao: 'Últimos 30 dias',
+            valor: _formatCurrency(total),
+            descricao: 'Período selecionado',
             icon: Icons.attach_money,
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _ResumoCard(
-            titulo: 'Receita Quadras',
-            valor: 'R\$ 32.400',
-            descricao: '70,9% do total',
+            titulo: 'Receita Comandas',
+            valor: _formatCurrency(comandas),
+            descricao: '$pctComandas% do total',
             icon: Icons.sports_soccer,
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _ResumoCard(
-            titulo: 'Receita Bar',
-            valor: 'R\$ 13.280',
-            descricao: '29,1% do total',
+            titulo: 'Receita Lançamentos',
+            valor: _formatCurrency(lancamentos),
+            descricao: '$pctLancamentos% do total',
             icon: Icons.local_bar,
           ),
         ),
@@ -179,8 +305,8 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
         Expanded(
           child: _ResumoCard(
             titulo: 'Total de Reservas',
-            valor: '324',
-            descricao: 'Média: R\$ 100',
+            valor: '$totalReservas',
+            descricao: 'Média: ${_formatCurrency(mediaReservas.round())}',
             icon: Icons.calendar_month,
           ),
         ),
@@ -270,23 +396,44 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        _BarraDistribuicao(
-                          label: 'Quadras',
-                          valor: 'R\$ 32.400 (70,9%)',
-                          proporcao: 0.71,
-                          cor: const Color(0xFF42A5F5),
+                    child: _dadosFaturamento == null 
+                      ? const Center(child: CircularProgressIndicator())
+                      : Column(
+                          children: [
+                            /* CODIGO ANTIGO (MOCK)
+                            _BarraDistribuicao(
+                              label: 'Quadras',
+                              valor: 'R\$ 32.400 (70,9%)',
+                              proporcao: 0.71,
+                              cor: const Color(0xFF42A5F5),
+                            ),
+                            const SizedBox(height: 16),
+                            _BarraDistribuicao(
+                              label: 'Bar',
+                              valor: 'R\$ 13.280 (29,1%)',
+                              proporcao: 0.29,
+                              cor: const Color(0xFFAB47BC),
+                            ),
+                            */
+                            _BarraDistribuicao(
+                              label: 'Quadras',
+                              valor: '${_formatCurrency(_dadosFaturamento!.faturamentoPorTipoVenda.comandas)} (${_dadosFaturamento!.faturamentoTotal > 0 ? (_dadosFaturamento!.faturamentoPorTipoVenda.comandas / _dadosFaturamento!.faturamentoTotal * 100).toStringAsFixed(1) : "0.0"}%)',
+                              proporcao: _dadosFaturamento!.faturamentoTotal > 0 
+                                ? _dadosFaturamento!.faturamentoPorTipoVenda.comandas / _dadosFaturamento!.faturamentoTotal
+                                : 0,
+                              cor: const Color(0xFF42A5F5),
+                            ),
+                            const SizedBox(height: 16),
+                            _BarraDistribuicao(
+                              label: 'Bar',
+                              valor: '${_formatCurrency(_dadosFaturamento!.faturamentoPorTipoVenda.lancamentos)} (${_dadosFaturamento!.faturamentoTotal > 0 ? (_dadosFaturamento!.faturamentoPorTipoVenda.lancamentos / _dadosFaturamento!.faturamentoTotal * 100).toStringAsFixed(1) : "0.0"}%)',
+                              proporcao: _dadosFaturamento!.faturamentoTotal > 0
+                                ? _dadosFaturamento!.faturamentoPorTipoVenda.lancamentos / _dadosFaturamento!.faturamentoTotal
+                                : 0,
+                              cor: const Color(0xFFAB47BC),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        _BarraDistribuicao(
-                          label: 'Bar',
-                          valor: 'R\$ 13.280 (29,1%)',
-                          proporcao: 0.29,
-                          cor: const Color(0xFFAB47BC),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -430,13 +577,10 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
       children: [
         Expanded(
           child: _CardTabela(
-            titulo: 'Top Clientes',
-            cabecalhos: const ['Cliente', 'Reservas', 'Receita'],
-            linhas: _topClientes
-                .map(
-                  (e) => [e.cliente, e.reservas, e.receita],
-                )
-                .toList(),
+            titulo: 'Top Clientes (por reservas)',
+            cabecalhos: const ['Cliente', 'Reservas', 'Comandas'],
+            // CODIGO ANTIGO: linhas: _topClientes.map((e) => [e.cliente, e.reservas, e.receita]).toList(),
+            linhas: _getTopClientesRows(),
             onExportar: _exportTopClientes,
           ),
         ),
@@ -444,17 +588,50 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
         Expanded(
           child: _CardTabela(
             titulo: 'Horários Mais Reservados',
-            cabecalhos: const ['Horário', 'Reservas', 'Receita'],
-            linhas: _horariosMaisReservados
-                .map(
-                  (e) => [e.horario, e.reservas, e.receita],
-                )
-                .toList(),
+            cabecalhos: const ['Horário', 'Reservas', 'Receita (Concluída)'],
+            // CODIGO ANTIGO: linhas: _horariosMaisReservados.map((e) => [e.horario, e.reservas, e.receita]).toList(),
+            linhas: _getHorariosRows(),
             onExportar: _exportHorarios,
           ),
         ),
       ],
     );
+  }
+
+  List<List<String>> _getTopClientesRows() {
+    if (_dadosClientes == null) return [];
+    final lista = _dadosClientes!['clientesMaisReservas'] as List;
+    return lista.map<List<String>>((c) => [
+      c['nomeCompleto'].toString(),
+      c['totalReservas'].toString(),
+      c['totalComandas'].toString()
+    ]).toList();
+  }
+
+  List<List<String>> _getHorariosRows() {
+    if (_dadosReservas == null) return [];
+    final reservas = _dadosReservas!['reservas'] as List;
+    final map = <int, Map<String, int>>{};
+    
+    for (var r in reservas) {
+      final h = r['hora'] as int;
+      if (!map.containsKey(h)) map[h] = {'count': 0, 'total': 0};
+      map[h]!['count'] = (map[h]!['count'] ?? 0) + 1;
+      if (r['status'] == 'CONCLUIDA') {
+         map[h]!['total'] = (map[h]!['total'] ?? 0) + (r['precoCents'] as int);
+      }
+    }
+    
+    final sortedKeys = map.keys.toList()..sort((a,b) => map[b]!['count']!.compareTo(map[a]!['count']!));
+    
+    return sortedKeys.take(10).map((h) {
+      final data = map[h]!;
+      return [
+        '$h:00 - $h:59',
+        data['count'].toString(),
+        _formatCurrency(data['total']!)
+      ];
+    }).toList();
   }
 
   Future<void> _exportTopClientes() async {
@@ -518,20 +695,21 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
                     ),
                   ],
                 ),
-                ..._topClientes.map(
+                // CODIGO ANTIGO: ..._topClientes.map((c) => pw.TableRow(...)),
+                ..._getTopClientesRows().map(
                   (c) => pw.TableRow(
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(c.cliente),
+                        child: pw.Text(c[0]),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(c.reservas),
+                        child: pw.Text(c[1]),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(c.receita),
+                        child: pw.Text(c[2]),
                       ),
                     ],
                   ),
@@ -607,20 +785,21 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
                     ),
                   ],
                 ),
-                ..._horariosMaisReservados.map(
+                // CODIGO ANTIGO: ..._horariosMaisReservados.map((h) => pw.TableRow(...)),
+                ..._getHorariosRows().map(
                   (h) => pw.TableRow(
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(h.horario),
+                        child: pw.Text(h[0]),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(h.reservas),
+                        child: pw.Text(h[1]),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(h.receita),
+                        child: pw.Text(h[2]),
                       ),
                     ],
                   ),
@@ -641,19 +820,65 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
       children: [
         Expanded(
           child: _CardTabelaBarProdutos(
-            linhas: _produtosMaisVendidos,
+            // CODIGO ANTIGO: linhas: _produtosMaisVendidos,
+            linhas: _getProdutosBarRows(),
             onExportar: _exportProdutosBar,
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _CardTabelaMovEstoque(
-            linhas: _movimentacaoEstoqueBar,
+            // CODIGO ANTIGO: linhas: _movimentacaoEstoqueBar,
+            linhas: _getEstoqueRows(),
             onExportar: _exportMovimentacaoBar,
           ),
         ),
       ],
     );
+  }
+
+  List<_LinhaProdutoBar> _getProdutosBarRows() {
+     if (_dadosFaturamento == null) return [];
+     return _dadosFaturamento!.produtosMaisVendidos.map((p) => _LinhaProdutoBar(
+       p.description,
+       p.quantidade.toString(),
+       _formatCurrency(p.totalCents),
+       _dadosFaturamento!.faturamentoTotal > 0 
+          ? (p.totalCents / _dadosFaturamento!.faturamentoTotal * 100).toStringAsFixed(1)
+          : '0.0'
+     )).toList();
+  }
+  
+  List<_LinhaMovBar> _getEstoqueRows() {
+     if (_dadosEstoque == null) return [];
+     
+     final sorted = List<ProdutoEstoque>.from(_dadosEstoque!.produtos);
+     sorted.sort((a,b) {
+        if (a.status == 'SEM_ESTOQUE') return -1;
+        if (b.status == 'SEM_ESTOQUE') return 1;
+        if (a.status == 'ESTOQUE_BAIXO') return -1;
+        if (b.status == 'ESTOQUE_BAIXO') return 1;
+        return 0;
+     });
+     
+     return sorted.take(10).map((p) {
+        // Tentar encontrar vendas deste produto
+        int vendidos = 0;
+        if (_dadosFaturamento != null) {
+           final vendido = _dadosFaturamento!.produtosMaisVendidos.firstWhere(
+             (v) => v.produtoId == p.id, 
+             orElse: () => ProdutoVendido(description: '', quantidade: 0, totalCents: 0)
+           );
+           vendidos = vendido.quantidade;
+        }
+        
+        return _LinhaMovBar(
+           p.name,
+           vendidos.toString(),
+           p.quantidade.toString(),
+           p.status
+        );
+     }).toList();
   }
 
   Future<void> _exportProdutosBar() async {
@@ -728,7 +953,8 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
                     ),
                   ],
                 ),
-                ..._produtosMaisVendidos.map(
+                // CODIGO ANTIGO: ..._produtosMaisVendidos.map((p) => pw.TableRow(...)),
+                ..._getProdutosBarRows().map(
                   (p) => pw.TableRow(
                     children: [
                       pw.Padding(
@@ -832,7 +1058,8 @@ class _RelatoriosSectionState extends State<RelatoriosSection> {
                     ),
                   ],
                 ),
-                ..._movimentacaoEstoqueBar.map(
+                // CODIGO ANTIGO: ..._movimentacaoEstoqueBar.map((m) => pw.TableRow(...)),
+                ..._getEstoqueRows().map(
                   (m) => pw.TableRow(
                     children: [
                       pw.Padding(
