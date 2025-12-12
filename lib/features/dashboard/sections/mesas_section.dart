@@ -154,7 +154,11 @@ class MesasSection extends StatelessWidget {
   }
 
   Widget _buildMesaCard(BuildContext context, MesaAberta mesa) {
-    final isOcupada = mesa.ativa;
+    // A mesa está ocupada se tiver um cliente associado.
+    // 'ativa' na API refere-se apenas se a mesa está habilitada ou desabilitada no sistema.
+    // Se a mesa estiver desabilitada (ativa == false), podemos mostrar de outra forma ou nem mostrar.
+    // Mas para o status "Ocupada" (Verde), dependemos do cliente.
+    final isOcupada = mesa.cliente != null && mesa.cliente!.isNotEmpty;
     // Cores seguindo a imagem: verde para ocupadas, cinza escuro para livres
     final backgroundColor = isOcupada 
         ? const Color(0xFF4CAF50) // Verde similar ao da imagem
@@ -322,9 +326,13 @@ class MesasSection extends StatelessWidget {
       context: context,
       builder: (context) => ComandaMesaModal(
         mesa: mesa,
-        onMesaFechada: () {
+        onMesaFechada: () async {
           // Recarregar mesas após fechar a mesa
-          controller.refresh();
+          // Aguardar um pouco para garantir que o backend processou a alteração
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (context.mounted) {
+            controller.refresh();
+          }
         },
         onModalFechado: () {
           // Recarregar mesas sempre que o modal for fechado (para atualizar valores)
@@ -513,19 +521,22 @@ class MesasSection extends StatelessWidget {
     );
 
     if (clienteSelecionado != null && context.mounted) {
+      print('🟢 [MESA] Tentando associar cliente ID string: "${clienteSelecionado.id}"');
       final clienteId = int.tryParse(clienteSelecionado.id);
       
       if (clienteId == null) {
+        print('🔴 [MESA] Falha ao converter ID do cliente para int');
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('ID do cliente inválido'),
+            SnackBar(
+              content: Text('ID do cliente inválido: "${clienteSelecionado.id}"'),
               backgroundColor: Colors.red,
             ),
           );
         }
         return;
       }
+      print('🟢 [MESA] Cliente ID convertido: $clienteId');
 
       final sucesso = await controller.ocuparMesa(
         id: mesa.id,
@@ -549,7 +560,7 @@ class MesasSection extends StatelessWidget {
               orElse: () => mesa,
             );
             // Aguardar um pouco para garantir que a API processou
-            await Future.delayed(const Duration(milliseconds: 300));
+            await Future.delayed(const Duration(milliseconds: 500));
             if (context.mounted) {
               _abrirComandaMesa(context, mesaAtualizada);
             }
