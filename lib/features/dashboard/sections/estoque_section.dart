@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../controllers/estoque_controller.dart';
+import '../models/produto.dart';
 
 class EstoqueSection extends StatefulWidget {
-  const EstoqueSection({super.key});
+  final EstoqueController controller;
+
+  const EstoqueSection({super.key, required this.controller});
 
   @override
   State<EstoqueSection> createState() => _EstoqueSectionState();
@@ -10,154 +16,45 @@ class EstoqueSection extends StatefulWidget {
 
 class _EstoqueSectionState extends State<EstoqueSection> {
   int _selectedTabIndex = 0; // 0 = Produtos, 1 = Movimentações
-  int _pageSize = 10;
-  int _paginaAtual = 1;
-  final List<int> _pageSizeOptions = [10, 20, 30, 50];
-
-  final List<_EstoqueAlertaMock> _alertas = [
-    const _EstoqueAlertaMock(
-      produto: 'Coca-Cola 2L',
-      quantidadeAtual: 5,
-      quantidadeMinima: 10,
-    ),
-    const _EstoqueAlertaMock(
-      produto: 'Água Mineral',
-      quantidadeAtual: 8,
-      quantidadeMinima: 15,
-    ),
-  ];
-
-  List<_ProdutoEstoqueMock> _produtos = [
-    const _ProdutoEstoqueMock(
-      nome: 'Coca-Cola 2L',
-      descricao: 'Refrigerante Coca-Cola garrafa 2 litros',
-      categoria: 'BEBIDA',
-      preco: 12.0,
-      estoqueAtual: 5,
-      estoqueMinimo: 10,
-    ),
-    const _ProdutoEstoqueMock(
-      nome: 'Coca-Cola Lata',
-      descricao: 'Refrigerante Coca-Cola lata 350ml',
-      categoria: 'BEBIDA',
-      preco: 6.0,
-      estoqueAtual: 20,
-      estoqueMinimo: 15,
-    ),
-    const _ProdutoEstoqueMock(
-      nome: 'Água Mineral',
-      descricao: 'Água mineral sem gás 500ml',
-      categoria: 'BEBIDA',
-      preco: 4.0,
-      estoqueAtual: 8,
-      estoqueMinimo: 15,
-    ),
-    const _ProdutoEstoqueMock(
-      nome: 'Cerveja Heineken',
-      descricao: 'Cerveja Heineken long neck 330ml',
-      categoria: 'BEBIDA',
-      preco: 10.0,
-      estoqueAtual: 30,
-      estoqueMinimo: 20,
-    ),
-    const _ProdutoEstoqueMock(
-      nome: 'Suco de Laranja',
-      descricao: 'Suco natural de laranja 300ml',
-      categoria: 'BEBIDA',
-      preco: 8.0,
-      estoqueAtual: 12,
-      estoqueMinimo: 10,
-    ),
-    const _ProdutoEstoqueMock(
-      nome: 'Porção de Batata',
-      descricao: 'Porção de batata frita crocante',
-      categoria: 'COMIDA',
-      preco: 25.0,
-      estoqueAtual: 15,
-      estoqueMinimo: 5,
-    ),
-    const _ProdutoEstoqueMock(
-      nome: 'Porção de Frango',
-      descricao: 'Porção de frango a passarinho',
-      categoria: 'COMIDA',
-      preco: 35.0,
-      estoqueAtual: 12,
-      estoqueMinimo: 5,
-    ),
-  ];
-
-  final List<_MovimentacaoEstoqueMock> _movimentacoes = const [
-    _MovimentacaoEstoqueMock(
-      data: '21/10/2025, 10:29',
-      produto: 'Coca-Cola 2L',
-      tipo: 'ENTRADA',
-      quantidade: 20,
-      usuario: 'Admin',
-      motivo: 'Compra fornecedor',
-    ),
-    _MovimentacaoEstoqueMock(
-      data: '22/10/2025, 10:29',
-      produto: 'Água Mineral',
-      tipo: 'ENTRADA',
-      quantidade: 30,
-      usuario: 'Admin',
-      motivo: 'Reposição',
-    ),
-    _MovimentacaoEstoqueMock(
-      data: '22/10/2025, 22:29',
-      produto: 'Coca-Cola 2L',
-      tipo: 'SAÍDA',
-      quantidade: -15,
-      usuario: 'Maria Souza',
-      motivo: 'Venda mesas',
-    ),
-    _MovimentacaoEstoqueMock(
-      data: '23/10/2025, 04:29',
-      produto: 'Água Mineral',
-      tipo: 'SAÍDA',
-      quantidade: -22,
-      usuario: 'João Santos',
-      motivo: 'Venda mesas',
-    ),
-  ];
-
-  final _produtoFormKey = GlobalKey<FormState>();
-  final TextEditingController _nomeController = TextEditingController();
-  final TextEditingController _descricaoController = TextEditingController();
-  final TextEditingController _precoController = TextEditingController();
-  final TextEditingController _quantidadeController = TextEditingController();
-  final TextEditingController _minQuantidadeController =
-      TextEditingController();
-  String _categoriaSelecionada = 'BEBIDA';
-  int? _indiceEditando;
+  Produto? _produtoSelecionadoMovimentacoes;
 
   @override
   void initState() {
     super.initState();
-    _atualizarAlertas();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.controller.carregarProdutos();
+      widget.controller.carregarProdutosEstoqueBaixo();
+    });
   }
+
+  List<Produto> get _produtos => widget.controller.produtos;
+  List<Produto> get _alertas => widget.controller.produtosEstoqueBaixo;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
-          const SizedBox(height: 24),
-          _buildAlertasCard(),
-          const SizedBox(height: 24),
-          _buildTabs(),
-          const SizedBox(height: 16),
-          Expanded(
-            child: _selectedTabIndex == 0
-                ? _buildProdutosTable()
-                : _buildMovTable(),
+    return Consumer<EstoqueController>(
+      builder: (context, controller, child) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 24),
+              _buildAlertasCard(controller),
+              const SizedBox(height: 24),
+              _buildTabs(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _selectedTabIndex == 0
+                    ? _buildProdutosTable(controller)
+                    : _buildMovTable(controller),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -190,7 +87,11 @@ class _EstoqueSectionState extends State<EstoqueSection> {
     );
   }
 
-  Widget _buildAlertasCard() {
+  Widget _buildAlertasCard(EstoqueController controller) {
+    if (_alertas.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -224,9 +125,9 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                for (final alerta in _alertas) ...[
+                for (final produto in _alertas) ...[
                   Text(
-                    alerta.produto,
+                    produto.name,
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 13,
@@ -241,7 +142,7 @@ class _EstoqueSectionState extends State<EstoqueSection> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: _alertas
                 .map(
-                  (a) => Padding(
+                  (produto) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -256,7 +157,7 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            '${a.quantidadeAtual} unidades (min: ${a.quantidadeMinima})',
+                            '${produto.estoque?.quantidade ?? 0} unidades (min: ${produto.estoque?.minQuantidade ?? 0})',
                             style: GoogleFonts.poppins(
                               color: Colors.black,
                               fontSize: 11,
@@ -267,10 +168,6 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: () {
-                            final produto = _produtos.firstWhere(
-                              (p) => p.nome == a.produto,
-                              orElse: () => _produtos.first,
-                            );
                             _abrirModalMovimentacao(
                               produto: produto,
                               isEntrada: true,
@@ -375,7 +272,34 @@ class _EstoqueSectionState extends State<EstoqueSection> {
     );
   }
 
-  Widget _buildProdutosTable() {
+  Widget _buildProdutosTable(EstoqueController controller) {
+    if (controller.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+        ),
+      );
+    }
+
+    if (controller.error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              controller.error!,
+              style: GoogleFonts.poppins(color: Colors.red),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => controller.carregarProdutos(),
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0F1F12),
@@ -400,141 +324,122 @@ class _EstoqueSectionState extends State<EstoqueSection> {
           ),
           const Divider(color: Colors.white12, height: 1),
           Expanded(
-            child: ListView.separated(
-              itemCount: _paginatedProdutos.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(color: Colors.white12, height: 1),
-              itemBuilder: (_, index) {
-                final p = _paginatedProdutos[index];
-                final bool isBaixo = p.estoqueAtual <= p.estoqueMinimo;
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Row(
-                    children: [
-                      _CellText(text: p.nome, flex: 3, primary: true),
-                      Expanded(
-                        flex: 2,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _CategoriaChip(label: p.categoria),
-                        ),
-                      ),
-                      _CellText(
-                        text: 'R\$ ${p.preco.toStringAsFixed(2)}',
-                        flex: 2,
-                      ),
-                      _CellText(
-                        text: p.estoqueAtual.toString(),
-                        flex: 2,
-                      ),
-                      _CellText(
-                        text: p.estoqueMinimo.toString(),
-                        flex: 2,
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _StatusChip(
-                            label: isBaixo ? 'Baixo' : 'OK',
-                            color: isBaixo
-                                ? const Color(0xFFFFB74D)
-                                : const Color(0xFF4CAF50),
-                            background: isBaixo
-                                ? const Color(0xFF3B2617)
-                                : const Color(0xFF1E3825),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _IconButton(
-                                icon: Icons.sync_alt,
-                                tooltip: 'Movimentar estoque',
-                                onTap: () {
-                                  _abrirModalMovimentacao(
-                                    produto: p,
-                                    isEntrada: true,
-                                  );
-                                },
+            child: controller.produtos.isEmpty
+                ? Center(
+                    child: Text(
+                      'Nenhum produto encontrado',
+                      style: GoogleFonts.poppins(color: Colors.white70),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: controller.produtos.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(color: Colors.white12, height: 1),
+                    itemBuilder: (_, index) {
+                      final p = controller.produtos[index];
+                      final status = p.statusEstoque;
+                      final isBaixo =
+                          status == 'ESTOQUE_BAIXO' || status == 'SEM_ESTOQUE';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 16),
+                        child: Row(
+                          children: [
+                            _CellText(text: p.name, flex: 3, primary: true),
+                            Expanded(
+                              flex: 2,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: _CategoriaChip(label: p.category),
                               ),
-                              const SizedBox(width: 4),
-                              _IconButton(
-                                icon: Icons.edit_outlined,
-                                tooltip: 'Editar produto',
-                                onTap: () {
-                                  final globalIndex =
-                                      (_paginaAtual - 1) * _pageSize + index;
-                                  _abrirModalProduto(
-                                    produto: p,
-                                    index: globalIndex,
-                                  );
-                                },
+                            ),
+                            _CellText(
+                              text: 'R\$ ${p.precoReais.toStringAsFixed(2)}',
+                              flex: 2,
+                            ),
+                            _CellText(
+                              text: p.estoque?.quantidade.toString() ?? '0',
+                              flex: 2,
+                            ),
+                            _CellText(
+                              text: p.estoque?.minQuantidade.toString() ?? '0',
+                              flex: 2,
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: _StatusChip(
+                                  label: status == 'SEM_ESTOQUE'
+                                      ? 'Sem'
+                                      : status == 'ESTOQUE_BAIXO'
+                                          ? 'Baixo'
+                                          : 'OK',
+                                  color: isBaixo
+                                      ? const Color(0xFFFFB74D)
+                                      : const Color(0xFF4CAF50),
+                                  background: isBaixo
+                                      ? const Color(0xFF3B2617)
+                                      : const Color(0xFF1E3825),
+                                ),
                               ),
-                              const SizedBox(width: 4),
-                              _IconButton(
-                                icon: Icons.delete_outline,
-                                tooltip: 'Excluir produto',
-                                onTap: () {
-                                  _abrirModalMovimentacao(
-                                    produto: p,
-                                    isEntrada: false,
-                                  );
-                                },
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _IconButton(
+                                      icon: Icons.sync_alt,
+                                      tooltip: 'Movimentar estoque',
+                                      onTap: () {
+                                        _abrirModalMovimentacao(
+                                          produto: p,
+                                          isEntrada: true,
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(width: 4),
+                                    _IconButton(
+                                      icon: Icons.edit_outlined,
+                                      tooltip: 'Editar produto',
+                                      onTap: () {
+                                        _abrirModalProduto(produto: p);
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           const Divider(color: Colors.white12, height: 1),
-          _buildPaginationFooter(),
+          _buildPaginationFooter(controller),
         ],
       ),
     );
   }
 
-  List<_ProdutoEstoqueMock> get _paginatedProdutos {
-    final total = _produtos.length;
-    if (total <= _pageSize) return _produtos;
-
-    final totalPaginas =
-        total == 0 ? 1 : ((total + _pageSize - 1) ~/ _pageSize);
-    if (_paginaAtual > totalPaginas) {
-      _paginaAtual = totalPaginas;
-    }
-
-    final start = (_paginaAtual - 1) * _pageSize;
-    final end = (start + _pageSize).clamp(0, total);
-    return _produtos.sublist(start, end);
-  }
-
-  Widget _buildPaginationFooter() {
-    final total = _produtos.length;
+  Widget _buildPaginationFooter(EstoqueController controller) {
+    final total = controller.totalRegistros;
     final semResultados = total == 0;
     int start = 0;
     int end = 0;
 
     if (!semResultados) {
-      start = ((_paginaAtual - 1) * _pageSize) + 1;
+      start = ((controller.paginaAtual - 1) * controller.pageSize) + 1;
       if (start > total) start = total;
-      end = start + _paginatedProdutos.length - 1;
+      end = start + controller.produtos.length - 1;
       if (end > total) end = total;
     }
 
-    final totalPaginas =
-        total == 0 ? 1 : ((total + _pageSize - 1) ~/ _pageSize);
+    final totalPaginas = controller.totalPaginas;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -555,10 +460,12 @@ class _EstoqueSectionState extends State<EstoqueSection> {
               IconButton(
                 icon: const Icon(Icons.chevron_left, color: Colors.white70),
                 splashRadius: 20,
-                onPressed: _paginaAtual > 1 ? _paginaAnterior : null,
+                onPressed: controller.paginaAtual > 1
+                    ? () => controller.paginaAnterior()
+                    : null,
               ),
               Text(
-                'Página $_paginaAtual de $totalPaginas',
+                'Página ${controller.paginaAtual} de $totalPaginas',
                 style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontSize: 12,
@@ -568,7 +475,9 @@ class _EstoqueSectionState extends State<EstoqueSection> {
               IconButton(
                 icon: const Icon(Icons.chevron_right, color: Colors.white70),
                 splashRadius: 20,
-                onPressed: _paginaAtual < totalPaginas ? _proximaPagina : null,
+                onPressed: controller.paginaAtual < totalPaginas
+                    ? () => controller.proximaPagina()
+                    : null,
               ),
             ],
           ),
@@ -591,10 +500,10 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
-                    value: _pageSize,
+                    value: widget.controller.pageSize,
                     dropdownColor: const Color(0xFF1B1E21),
                     style: GoogleFonts.poppins(color: Colors.white),
-                    items: _pageSizeOptions
+                    items: widget.controller.pageSizeOptions
                         .map(
                           (size) => DropdownMenuItem<int>(
                             value: size,
@@ -603,11 +512,8 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                         )
                         .toList(),
                     onChanged: (value) {
-                      if (value == null || value == _pageSize) return;
-                      setState(() {
-                        _pageSize = value;
-                        _paginaAtual = 1;
-                      });
+                      if (value == null) return;
+                      controller.setPageSize(value);
                     },
                   ),
                 ),
@@ -619,40 +525,8 @@ class _EstoqueSectionState extends State<EstoqueSection> {
     );
   }
 
-  void _proximaPagina() {
-    final total = _produtos.length;
-    final totalPaginas =
-        total == 0 ? 1 : ((total + _pageSize - 1) ~/ _pageSize);
-    if (_paginaAtual >= totalPaginas) return;
-    setState(() {
-      _paginaAtual++;
-    });
-  }
-
-  void _paginaAnterior() {
-    if (_paginaAtual <= 1) return;
-    setState(() {
-      _paginaAtual--;
-    });
-  }
-
-  void _atualizarAlertas() {
-    _alertas.clear();
-    for (final p in _produtos) {
-      if (p.estoqueAtual <= p.estoqueMinimo) {
-        _alertas.add(
-          _EstoqueAlertaMock(
-            produto: p.nome,
-            quantidadeAtual: p.estoqueAtual,
-            quantidadeMinima: p.estoqueMinimo,
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _abrirModalMovimentacao({
-    required _ProdutoEstoqueMock produto,
+    required Produto produto,
     required bool isEntrada,
   }) async {
     final formKey = GlobalKey<FormState>();
@@ -683,8 +557,8 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                       children: [
                         Text(
                           isEntrada
-                              ? 'Adicionar Unidades - ${produto.nome}'
-                              : 'Remover Unidades - ${produto.nome}',
+                              ? 'Adicionar Unidades - ${produto.name}'
+                              : 'Remover Unidades - ${produto.name}',
                           style: GoogleFonts.poppins(
                             color: Colors.white,
                             fontSize: 18,
@@ -722,7 +596,7 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                         border: Border.all(color: Colors.white10),
                       ),
                       child: Text(
-                        '${produto.estoqueAtual} unidades',
+                        '${produto.estoque?.quantidade ?? 0} unidades',
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontSize: 15,
@@ -750,8 +624,9 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                         if (parsed == null || parsed <= 0) {
                           return 'Informe uma quantidade válida';
                         }
-                        if (!isEntrada && parsed > produto.estoqueAtual) {
-                          return 'Máximo disponível: ${produto.estoqueAtual} unidades';
+                        if (!isEntrada &&
+                            parsed > (produto.estoque?.quantidade ?? 0)) {
+                          return 'Máximo disponível: ${produto.estoque?.quantidade ?? 0} unidades';
                         }
                         return null;
                       },
@@ -759,7 +634,7 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                     if (!isEntrada) ...[
                       const SizedBox(height: 6),
                       Text(
-                        'Máximo disponível: ${produto.estoqueAtual} unidades',
+                        'Máximo disponível: ${produto.estoque?.quantidade ?? 0} unidades',
                         style: GoogleFonts.poppins(
                           color: Colors.white38,
                           fontSize: 11,
@@ -801,42 +676,99 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               if (!formKey.currentState!.validate()) return;
 
                               final qtd =
                                   int.parse(quantidadeController.text.trim());
-                              int novoEstoque = produto.estoqueAtual;
-                              if (isEntrada) {
-                                novoEstoque += qtd;
-                              } else {
-                                novoEstoque -= qtd;
-                              }
+                              final observacao = motivoController.text.trim();
 
-                              setState(() {
-                                final idx = _produtos
-                                    .indexWhere((p) => p.nome == produto.nome);
-                                if (idx != -1) {
-                                  _produtos[idx] = _produtos[idx].copyWith(
-                                    estoqueAtual: novoEstoque,
+                              if (isEntrada) {
+                                final sucesso = await widget.controller
+                                    .adicionarEntradaEstoque(
+                                  produtoId: produto.id,
+                                  quantidade: qtd,
+                                  observacao:
+                                      observacao.isEmpty ? null : observacao,
+                                );
+
+                                if (sucesso && mounted) {
+                                  // Recarregar movimentações se estiver na aba de movimentações
+                                  if (_selectedTabIndex == 1 &&
+                                      _produtoSelecionadoMovimentacoes !=
+                                          null) {
+                                    widget.controller.carregarMovimentacoes(
+                                      produtoId: produto.id,
+                                      resetPage: true,
+                                    );
+                                  }
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Unidades adicionadas com sucesso!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                  Navigator.of(dialogContext).pop();
+                                } else if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(widget.controller.error ??
+                                          'Erro ao adicionar unidades'),
+                                      backgroundColor: Colors.red,
+                                    ),
                                   );
                                 }
-                                _atualizarAlertas();
-                              });
+                              } else {
+                                // Para saída, usar atualização direta de estoque
+                                final estoqueAtual =
+                                    produto.estoque?.quantidade ?? 0;
+                                final novoEstoque = estoqueAtual - qtd;
+                                if (novoEstoque < 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Quantidade insuficiente em estoque'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    isEntrada
-                                        ? 'Unidades adicionadas com sucesso!'
-                                        : 'Unidades removidas com sucesso!',
-                                  ),
-                                  backgroundColor:
-                                      isEntrada ? Colors.green : Colors.orange,
-                                ),
-                              );
+                                final sucesso =
+                                    await widget.controller.atualizarEstoque(
+                                  produtoId: produto.id,
+                                  quantidade: novoEstoque,
+                                );
 
-                              Navigator.of(dialogContext).pop();
+                                if (sucesso && mounted) {
+                                  // Recarregar movimentações se estiver na aba de movimentações
+                                  if (_selectedTabIndex == 1 &&
+                                      _produtoSelecionadoMovimentacoes !=
+                                          null) {
+                                    widget.controller.carregarMovimentacoes(
+                                      produtoId: produto.id,
+                                      resetPage: true,
+                                    );
+                                  }
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Unidades removidas com sucesso!'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  Navigator.of(dialogContext).pop();
+                                } else if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(widget.controller.error ??
+                                          'Erro ao remover unidades'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isEntrada
@@ -871,16 +803,27 @@ class _EstoqueSectionState extends State<EstoqueSection> {
     );
   }
 
-  Future<void> _abrirModalProduto(
-      {_ProdutoEstoqueMock? produto, int? index}) async {
-    _indiceEditando = index;
+  final _produtoFormKey = GlobalKey<FormState>();
+  final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _descricaoController = TextEditingController();
+  final TextEditingController _precoController = TextEditingController();
+  final TextEditingController _quantidadeController = TextEditingController();
+  final TextEditingController _minQuantidadeController =
+      TextEditingController();
+  String _categoriaSelecionada = 'BEBIDA';
+  Produto? _produtoEditando;
+
+  Future<void> _abrirModalProduto({Produto? produto}) async {
+    _produtoEditando = produto;
     if (produto != null) {
-      _nomeController.text = produto.nome;
-      _descricaoController.text = produto.descricao;
-      _precoController.text = produto.preco.toStringAsFixed(2);
-      _quantidadeController.text = produto.estoqueAtual.toString();
-      _minQuantidadeController.text = produto.estoqueMinimo.toString();
-      _categoriaSelecionada = produto.categoria;
+      _nomeController.text = produto.name;
+      _descricaoController.text = produto.description ?? '';
+      _precoController.text = produto.precoReais.toStringAsFixed(2);
+      _quantidadeController.text =
+          produto.estoque?.quantidade.toString() ?? '0';
+      _minQuantidadeController.text =
+          produto.estoque?.minQuantidade.toString() ?? '0';
+      _categoriaSelecionada = produto.category;
     } else {
       _nomeController.clear();
       _descricaoController.clear();
@@ -1009,6 +952,14 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                                       DropdownMenuItem(
                                         value: 'COMIDA',
                                         child: Text('Comida'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'SNACK',
+                                        child: Text('Snack'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'OUTROS',
+                                        child: Text('Outros'),
                                       ),
                                     ],
                                     onChanged: (value) {
@@ -1152,7 +1103,7 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               if (!_produtoFormKey.currentState!.validate()) {
                                 return;
                               }
@@ -1167,37 +1118,46 @@ class _EstoqueSectionState extends State<EstoqueSection> {
                               final minQtd = int.parse(
                                   _minQuantidadeController.text.trim());
 
-                              final novoProduto = _ProdutoEstoqueMock(
-                                nome: _nomeController.text.trim(),
-                                descricao: _descricaoController.text.trim(),
-                                categoria: _categoriaSelecionada,
-                                preco: preco,
-                                estoqueAtual: qtd,
-                                estoqueMinimo: minQtd,
-                              );
+                              final sucesso = _produtoEditando != null
+                                  ? await widget.controller.atualizarProduto(
+                                      id: _produtoEditando!.id,
+                                      name: _nomeController.text.trim(),
+                                      description:
+                                          _descricaoController.text.trim(),
+                                      category: _categoriaSelecionada,
+                                      precoReais: preco,
+                                    )
+                                  : await widget.controller.criarProduto(
+                                      name: _nomeController.text.trim(),
+                                      description:
+                                          _descricaoController.text.trim(),
+                                      category: _categoriaSelecionada,
+                                      precoReais: preco,
+                                      quantidade: qtd,
+                                      minQuantidade: minQtd,
+                                    );
 
-                              setState(() {
-                                if (_indiceEditando != null &&
-                                    _indiceEditando! >= 0 &&
-                                    _indiceEditando! < _produtos.length) {
-                                  _produtos[_indiceEditando!] = novoProduto;
-                                } else {
-                                  _produtos.add(novoProduto);
-                                }
-                              });
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    _indiceEditando != null
-                                        ? 'Produto atualizado com sucesso!'
-                                        : 'Produto criado com sucesso!',
+                              if (sucesso && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      _produtoEditando != null
+                                          ? 'Produto atualizado com sucesso!'
+                                          : 'Produto criado com sucesso!',
+                                    ),
+                                    backgroundColor: Colors.green,
                                   ),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-
-                              Navigator.of(dialogContext).pop();
+                                );
+                                Navigator.of(dialogContext).pop();
+                              } else if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(widget.controller.error ??
+                                        'Erro ao salvar produto'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF67F373),
@@ -1241,7 +1201,139 @@ class _EstoqueSectionState extends State<EstoqueSection> {
     );
   }
 
-  Widget _buildMovTable() {
+  Widget _buildMovTable(EstoqueController controller) {
+    // Se não houver produto selecionado, mostrar lista de produtos para selecionar
+    if (_produtoSelecionadoMovimentacoes == null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F1F12),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white12),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Selecione um produto para ver as movimentações',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: controller.produtos.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Nenhum produto disponível',
+                        style: GoogleFonts.poppins(color: Colors.white70),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: controller.produtos.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, index) {
+                        final produto = controller.produtos[index];
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _produtoSelecionadoMovimentacoes = produto;
+                            });
+                            controller.carregarMovimentacoes(
+                              produtoId: produto.id,
+                              resetPage: true,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        produto.name,
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      if (produto.description != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          produto.description!,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white70,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (controller.isLoadingMovimentacoes) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+        ),
+      );
+    }
+
+    if (controller.error != null && controller.movimentacoes.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              controller.error!,
+              style: GoogleFonts.poppins(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                controller.carregarMovimentacoes(
+                  produtoId: _produtoSelecionadoMovimentacoes!.id,
+                  resetPage: true,
+                );
+              },
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0F1F12),
@@ -1250,64 +1342,184 @@ class _EstoqueSectionState extends State<EstoqueSection> {
       ),
       child: Column(
         children: [
+          // Header com nome do produto e botão para voltar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white70),
+                  onPressed: () {
+                    setState(() {
+                      _produtoSelecionadoMovimentacoes = null;
+                    });
+                  },
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _produtoSelecionadoMovimentacoes!.name,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Movimentações de estoque',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Row(
               children: const [
                 _HeaderCell(text: 'Data', flex: 2),
-                _HeaderCell(text: 'Produto', flex: 3),
                 _HeaderCell(text: 'Tipo', flex: 2),
                 _HeaderCell(text: 'Quantidade', flex: 2),
-                _HeaderCell(text: 'Usuário', flex: 2),
-                _HeaderCell(text: 'Motivo', flex: 3),
+                _HeaderCell(text: 'Antes', flex: 2),
+                _HeaderCell(text: 'Depois', flex: 2),
+                _HeaderCell(text: 'Observação', flex: 3),
               ],
             ),
           ),
           const Divider(color: Colors.white12, height: 1),
           Expanded(
-            child: ListView.separated(
-              itemCount: _movimentacoes.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(color: Colors.white12, height: 1),
-              itemBuilder: (_, index) {
-                final m = _movimentacoes[index];
-                final bool isEntrada = m.tipo == 'ENTRADA';
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Row(
-                    children: [
-                      _CellText(text: m.data, flex: 2),
-                      _CellText(text: m.produto, flex: 3, primary: true),
-                      Expanded(
-                        flex: 2,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _StatusChip(
-                            label: isEntrada ? 'Entrada' : 'Saída',
-                            color: isEntrada
-                                ? const Color(0xFF4CAF50)
-                                : const Color(0xFFFF5252),
-                            background: isEntrada
-                                ? const Color(0xFF1E3825)
-                                : const Color(0xFF3B1B1B),
+            child: controller.movimentacoes.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.inventory_2_outlined,
+                          color: Colors.white38,
+                          size: 64,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Nenhuma movimentação encontrada',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white70,
+                            fontSize: 16,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'As movimentações aparecerão aqui quando você:\n• Adicionar entrada de estoque\n• Fazer ajuste direto de estoque',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: controller.movimentacoes.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(color: Colors.white12, height: 1),
+                    itemBuilder: (_, index) {
+                      final m = controller.movimentacoes[index];
+                      final isEntrada = m.isEntrada;
+                      final dateFormat = DateFormat('dd/MM/yyyy, HH:mm');
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 16),
+                        child: Row(
+                          children: [
+                            _CellText(
+                                text: dateFormat.format(m.createdAt), flex: 2),
+                            Expanded(
+                              flex: 2,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: _StatusChip(
+                                  label: isEntrada ? 'Entrada' : 'Saída',
+                                  color: isEntrada
+                                      ? const Color(0xFF4CAF50)
+                                      : const Color(0xFFFF5252),
+                                  background: isEntrada
+                                      ? const Color(0xFF1E3825)
+                                      : const Color(0xFF3B1B1B),
+                                ),
+                              ),
+                            ),
+                            _CellText(
+                              text: isEntrada
+                                  ? '+${m.quantidade}'
+                                  : '-${m.quantidade}',
+                              flex: 2,
+                            ),
+                            _CellText(
+                                text: m.quantidadeAntes.toString(), flex: 2),
+                            _CellText(
+                                text: m.quantidadeDepois.toString(), flex: 2),
+                            _CellText(text: m.observacao ?? '-', flex: 3),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          // Footer com paginação se necessário
+          if (controller.movimentacoesTotalPaginas > 1)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Mostrando ${controller.movimentacoes.length} de ${controller.movimentacoesTotalRegistros} movimentações',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white54,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left,
+                            color: Colors.white70),
+                        splashRadius: 20,
+                        onPressed: controller.movimentacoesPaginaAtual > 1
+                            ? () => controller.paginaAnteriorMovimentacoes()
+                            : null,
                       ),
-                      _CellText(
-                        text: m.quantidade > 0
-                            ? '+${m.quantidade}'
-                            : m.quantidade.toString(),
-                        flex: 2,
+                      Text(
+                        'Página ${controller.movimentacoesPaginaAtual} de ${controller.movimentacoesTotalPaginas}',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      _CellText(text: m.usuario, flex: 2),
-                      _CellText(text: m.motivo, flex: 3),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right,
+                            color: Colors.white70),
+                        splashRadius: 20,
+                        onPressed: controller.movimentacoesPaginaAtual <
+                                controller.movimentacoesTotalPaginas
+                            ? () => controller.proximaPaginaMovimentacoes()
+                            : null,
+                      ),
                     ],
                   ),
-                );
-              },
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -1467,70 +1679,4 @@ class _IconButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _EstoqueAlertaMock {
-  final String produto;
-  final int quantidadeAtual;
-  final int quantidadeMinima;
-
-  const _EstoqueAlertaMock({
-    required this.produto,
-    required this.quantidadeAtual,
-    required this.quantidadeMinima,
-  });
-}
-
-class _ProdutoEstoqueMock {
-  final String nome;
-  final String descricao;
-  final String categoria;
-  final double preco;
-  final int estoqueAtual;
-  final int estoqueMinimo;
-
-  const _ProdutoEstoqueMock({
-    required this.nome,
-    required this.descricao,
-    required this.categoria,
-    required this.preco,
-    required this.estoqueAtual,
-    required this.estoqueMinimo,
-  });
-
-  _ProdutoEstoqueMock copyWith({
-    String? nome,
-    String? descricao,
-    String? categoria,
-    double? preco,
-    int? estoqueAtual,
-    int? estoqueMinimo,
-  }) {
-    return _ProdutoEstoqueMock(
-      nome: nome ?? this.nome,
-      descricao: descricao ?? this.descricao,
-      categoria: categoria ?? this.categoria,
-      preco: preco ?? this.preco,
-      estoqueAtual: estoqueAtual ?? this.estoqueAtual,
-      estoqueMinimo: estoqueMinimo ?? this.estoqueMinimo,
-    );
-  }
-}
-
-class _MovimentacaoEstoqueMock {
-  final String data;
-  final String produto;
-  final String tipo;
-  final int quantidade;
-  final String usuario;
-  final String motivo;
-
-  const _MovimentacaoEstoqueMock({
-    required this.data,
-    required this.produto,
-    required this.tipo,
-    required this.quantidade,
-    required this.usuario,
-    required this.motivo,
-  });
 }

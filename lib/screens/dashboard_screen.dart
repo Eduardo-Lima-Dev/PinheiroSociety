@@ -9,6 +9,7 @@ import '../features/dashboard/controllers/cadastro_acesso_controller.dart';
 import '../features/dashboard/controllers/agendamentos_controller.dart';
 import '../features/dashboard/controllers/quadras_controller.dart';
 import '../features/dashboard/controllers/mesas_controller.dart';
+import '../features/dashboard/controllers/estoque_controller.dart';
 import '../features/dashboard/sections/home_section.dart';
 import '../features/dashboard/sections/clientes_section.dart';
 import '../features/dashboard/sections/cadastro_acesso_section.dart';
@@ -34,6 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late AgendamentosController _agendamentosController;
   late QuadrasController _quadrasController;
   late MesasController _mesasController;
+  late EstoqueController _estoqueController;
 
   String _userName = 'Usuário';
   bool _isAdmin = false;
@@ -50,6 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _agendamentosController = AgendamentosController();
     _quadrasController = QuadrasController();
     _mesasController = MesasController();
+    _estoqueController = EstoqueController();
     _cadastroAcessoController.carregarFuncionarios();
     _quadrasController.carregarQuadras();
     _mesasController.carregarMesas();
@@ -94,6 +97,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ChangeNotifierProvider.value(value: _agendamentosController),
         ChangeNotifierProvider.value(value: _quadrasController),
         ChangeNotifierProvider.value(value: _mesasController),
+        ChangeNotifierProvider.value(value: _estoqueController),
       ],
       child: Scaffold(
         backgroundColor: const Color(0xFF0F1419),
@@ -265,6 +269,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     onTap: () {
                                       dashboardController
                                           .selectSection('estoque');
+                                      _estoqueController.carregarProdutos();
+                                      _estoqueController
+                                          .carregarProdutosEstoqueBaixo();
                                     },
                                   ),
                                   SidebarItem(
@@ -351,7 +358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     case 'quadras':
                       return QuadrasSection(controller: _quadrasController);
                     case 'estoque':
-                      return const EstoqueSection();
+                      return EstoqueSection(controller: _estoqueController);
                     case 'relatorios':
                       return const RelatoriosSection();
                     default:
@@ -381,6 +388,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _cadastroAcessoController.dispose();
     _agendamentosController.dispose();
     _quadrasController.dispose();
+    _mesasController.dispose();
+    _estoqueController.dispose();
     super.dispose();
   }
 }
