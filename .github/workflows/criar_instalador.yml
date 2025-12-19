@@ -32,12 +32,11 @@ jobs:
       run: flutter build windows --release
 
     - name: Compilar Instalador (Inno Setup)
-      uses: minnowware/setup-innosetup@v1
+      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
       with:
-        version: "6.2.2"
+        path: setup.iss
     
-    - name: Rodar Inno Setup para criar o instalador
-      run: iscc setup.iss
+
 
     - name: Upload do Instalador gerado
       uses: actions/upload-artifact@v4
