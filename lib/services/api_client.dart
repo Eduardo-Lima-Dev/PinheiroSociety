@@ -4,8 +4,8 @@ import 'user_storage.dart';
 
 /// Cliente HTTP centralizado para todas as requisições
 class ApiClient {
-  // static const String baseUrl = 'https://pinheiro-society-api.vercel.app';
-  static const String baseUrl = 'http://localhost:3000';
+  static const String baseUrl = 'https://pinheiro-society-api.vercel.app';
+  // static const String baseUrl = 'http://localhost:3000';
 
   /// Headers padrão para as requisições
   static Map<String, String> get _baseHeaders => {
@@ -13,15 +13,14 @@ class ApiClient {
         'Accept': 'application/json',
       };
 
-  /// Monta headers com token de autenticação (se disponível)
   static Future<Map<String, String>> _getHeaders() async {
     final headers = Map<String, String>.from(_baseHeaders);
     final token = await UserStorage.getToken();
-    
+
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
-    
+
     return headers;
   }
 
@@ -33,10 +32,11 @@ class ApiClient {
         Uri.parse('$baseUrl$endpoint'),
         headers: headers,
       );
-      
+
       // Verificar se a resposta é JSON antes de tentar decodificar
       final contentType = res.headers['content-type'] ?? '';
-      if (!contentType.contains('application/json') && !contentType.contains('text/json')) {
+      if (!contentType.contains('application/json') &&
+          !contentType.contains('text/json')) {
         // Se não for JSON, pode ser HTML (erro 404) ou outro formato
         if (res.statusCode == 404) {
           return {
@@ -50,13 +50,14 @@ class ApiClient {
           'error': 'Resposta inválida do servidor (não é JSON)',
         };
       }
-      
+
       dynamic data;
       try {
         data = jsonDecode(res.body);
       } catch (e) {
         // Se falhar ao decodificar, pode ser HTML ou outro formato
-        if (res.body.trim().startsWith('<!DOCTYPE') || res.body.trim().startsWith('<html')) {
+        if (res.body.trim().startsWith('<!DOCTYPE') ||
+            res.body.trim().startsWith('<html')) {
           if (res.statusCode == 404) {
             return {
               'success': false,
@@ -71,14 +72,16 @@ class ApiClient {
         }
         rethrow;
       }
-      
+
       if (res.statusCode == 200) {
         return {'success': true, 'data': data};
       }
-      
+
       return {
         'success': false,
-        'error': data is Map ? (data['message'] ?? 'Erro na requisição') : 'Erro na requisição',
+        'error': data is Map
+            ? (data['message'] ?? 'Erro na requisição')
+            : 'Erro na requisição',
       };
     } catch (e) {
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
@@ -94,11 +97,11 @@ class ApiClient {
       final url = '$baseUrl$endpoint';
       final headers = await _getHeaders();
       final bodyJson = jsonEncode(body);
-      
+
       print('🔵 [ApiClient] POST $url');
       print('🔵 [ApiClient] Headers: $headers');
       print('🔵 [ApiClient] Body: $bodyJson');
-      
+
       final response = await http.post(
         Uri.parse(url),
         headers: headers,
@@ -110,7 +113,8 @@ class ApiClient {
 
       // Verificar se a resposta é JSON antes de tentar decodificar
       final contentType = response.headers['content-type'] ?? '';
-      if (!contentType.contains('application/json') && !contentType.contains('text/json')) {
+      if (!contentType.contains('application/json') &&
+          !contentType.contains('text/json')) {
         // Se não for JSON, pode ser HTML (erro 404) ou outro formato
         if (response.statusCode == 404) {
           return {
@@ -130,7 +134,8 @@ class ApiClient {
         responseData = jsonDecode(response.body);
       } catch (e) {
         // Se falhar ao decodificar, pode ser HTML ou outro formato
-        if (response.body.trim().startsWith('<!DOCTYPE') || response.body.trim().startsWith('<html')) {
+        if (response.body.trim().startsWith('<!DOCTYPE') ||
+            response.body.trim().startsWith('<html')) {
           if (response.statusCode == 404) {
             return {
               'success': false,
@@ -151,19 +156,23 @@ class ApiClient {
         return {'success': true, 'data': responseData};
       }
 
-      print('❌ [ApiClient] Erro na requisição - Status: ${response.statusCode}');
-      print('❌ [ApiClient] Erro message: ${responseData is Map ? responseData['message'] : 'Erro desconhecido'}');
-      
+      print(
+          '❌ [ApiClient] Erro na requisição - Status: ${response.statusCode}');
+      print(
+          '❌ [ApiClient] Erro message: ${responseData is Map ? responseData['message'] : 'Erro desconhecido'}');
+
       return {
         'success': false,
-        'error': responseData is Map ? (responseData['message'] ?? 'Erro na requisição') : 'Erro na requisição',
+        'error': responseData is Map
+            ? (responseData['message'] ?? 'Erro na requisição')
+            : 'Erro na requisição',
       };
     } catch (e, stackTrace) {
       print('🔴 [ApiClient] Exceção na requisição POST:');
       print('🔴 [ApiClient] Erro: $e');
       print('🔴 [ApiClient] Tipo: ${e.runtimeType}');
       print('🔴 [ApiClient] StackTrace: $stackTrace');
-      
+
       return {
         'success': false,
         'error': 'Erro de conexão: ${e.toString()}',
