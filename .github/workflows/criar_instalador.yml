@@ -23,7 +23,7 @@ jobs:
       uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
-        flutter-version: '3.16.0' # Podes ajustar para a versão que usas ou deixar 'any'
+        flutter-version: '3.24.3' # Atualizado para suportar Dart 3.5.4+
         
     - name: Instalar Dependências
       run: flutter pub get
